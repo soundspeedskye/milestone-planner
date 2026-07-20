@@ -49,15 +49,14 @@ src/
 
 1. GitHub에 저장소를 push
 2. [Azure Portal](https://portal.azure.com) → **Static Web App 만들기** → 요금제 **Free** 선택
-3. GitHub 저장소/브랜치(main) 연결, 빌드 설정:
-   - App location: `/`
-   - Output location: `dist`
-4. Azure가 배포 토큰을 발급하면 GitHub 저장소 → Settings → Secrets에
+3. 배포 소스는 **기타(Other)** 선택 (GitHub을 고르면 Azure가 워크플로를 하나 더 만들어 중복 실행됨)
+4. 생성 후 **배포 토큰 관리**에서 토큰 복사 → GitHub 저장소 → Settings → Secrets에
    `AZURE_STATIC_WEB_APPS_API_TOKEN`으로 등록
 5. 이후 main에 push할 때마다 [.github/workflows/azure-static-web-apps.yml](.github/workflows/azure-static-web-apps.yml)이 테스트 → 빌드 → 배포를 자동 실행
 
-> Azure Portal에서 GitHub 연동으로 생성하면 워크플로 파일과 시크릿이 자동 등록됩니다.
-> 이 저장소에는 미리 준비된 워크플로가 있으므로 시크릿만 등록하면 돼요.
+> 워크플로가 `npm run build`로 직접 빌드하고 `skip_app_build: true`로 올리므로,
+> `app_location`은 빌드 결과물인 `dist`를 가리킵니다. `/`로 두면 소스 전체가 배포됩니다.
+> 같은 이유로 `staticwebapp.config.json`은 `dist`에 포함되도록 [public/](public/)에 둡니다.
 
 ### 공휴일 자동 갱신 (data.go.kr)
 

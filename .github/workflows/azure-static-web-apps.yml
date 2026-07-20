@@ -30,8 +30,10 @@ jobs:
           azure_static_web_apps_api_token: ${{ env.AZURE_TOKEN }}
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           action: upload
-          app_location: '/'
-          output_location: 'dist'
+          # skip_app_build일 때는 output_location이 무시되고 app_location이 그대로 업로드된다.
+          # '/'로 두면 소스 전체가 배포되므로 반드시 빌드 결과물 폴더를 가리켜야 한다.
+          app_location: 'dist'
+          output_location: ''
           skip_app_build: true
       - name: Azure 미설정 안내
         if: env.AZURE_TOKEN == ''
