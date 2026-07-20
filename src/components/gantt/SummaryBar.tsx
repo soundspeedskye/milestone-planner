@@ -1,17 +1,16 @@
-import { useSchedules } from '../../hooks'
-import { scheduleRange } from '../../lib/schedule'
 import { fmt, parseDate } from '../../lib/workdays'
 import { usePlannerStore } from '../../store/usePlannerStore'
+import { useScheduleRange, useSchedules } from '../../store/useScheduleStore'
 
 export function SummaryBar() {
   const startDate = usePlannerStore(s => s.startDate)
   const roles = usePlannerStore(s => s.roles)
   const ganttTasks = usePlannerStore(s => s.ganttTasks)
   const schedules = useSchedules()
+  const range = useScheduleRange()
 
   if (ganttTasks.length === 0 || !startDate) return <div className="summary-bar" />
 
-  const range = scheduleRange(schedules)
   const projectStart = parseDate(startDate)
   const projectEnd = range ? range.max : projectStart
 

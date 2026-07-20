@@ -15,6 +15,10 @@ export function Legend() {
         공휴일
       </div>
       <div className="legend-item">
+        <div className="legend-dot" style={{ background: '#FBF3F3', border: '1px solid #ebd5d5' }} />
+        주말
+      </div>
+      <div className="legend-item">
         <div className="legend-gap" />
         공백
       </div>

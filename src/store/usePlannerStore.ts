@@ -48,6 +48,8 @@ const newTaskId = (state: { poolTasks: Task[]; ganttTasks: Task[] }) =>
   Math.max(0, ...state.poolTasks.map(t => t.id), ...state.ganttTasks.map(t => t.id)) + 1
 
 const emptyTask = (id: number): Task => ({ id, name: '', days: {} })
+/** 처음 열었을 때와 초기화했을 때 같은 개수로 시작한다 */
+const emptyTasks = () => [emptyTask(1), emptyTask(2), emptyTask(3)]
 
 /** 구버전(단일 HTML) localStorage 데이터를 새 포맷으로 변환 */
 interface LegacyTask { id: number; name: string; [role: string]: unknown }
@@ -78,7 +80,7 @@ function initialData() {
   const legacy = readLegacyV2()
   return {
     startDate: legacy?.startDate ?? todayStr(),
-    poolTasks: legacy?.poolTasks ?? [emptyTask(1), emptyTask(2), emptyTask(3)],
+    poolTasks: legacy?.poolTasks ?? emptyTasks(),
     ganttTasks: legacy?.ganttTasks ?? [],
     roles: DEFAULT_ROLES,
     holidays: { custom: [], disabled: [] } as HolidayConfig,
@@ -178,17 +180,36 @@ export const usePlannerStore = create<PlannerState>()(
         }
       }),
 
+      // 휴무일 설정은 프로젝트와 무관한 회사 단위 정보라 초기화 대상에서 뺀다
       resetAll: () => {
         localStorage.removeItem(LEGACY_STORAGE_KEY)
         set({
           startDate: todayStr(),
-          poolTasks: [emptyTask(1), emptyTask(2)],
+          poolTasks: emptyTasks(),
           ganttTasks: [],
           roles: DEFAULT_ROLES,
-          holidays: { custom: [], disabled: [] },
         })
       },
     }),
-    { name: STORAGE_KEY, version: 1 },
+    {
+      name: STORAGE_KEY,
+      version: 2,
+      /**
+       * v2: 기본 공휴일 목록에서 지난 연도가 빠지면서, 저장된 disabled에 남은
+       * 매칭되지 않는 과거 날짜를 걸러낸다. custom은 사용자가 넣은 값이라 그대로 둔다.
+       */
+      migrate: (persisted, version) => {
+        const state = persisted as PlannerState
+        if (version >= 2 || !state?.holidays) return state
+        const thisYear = new Date().getFullYear()
+        return {
+          ...state,
+          holidays: {
+            ...state.holidays,
+            disabled: state.holidays.disabled.filter(d => Number(d.slice(0, 4)) >= thisYear),
+          },
+        }
+      },
+    },
   ),
 )

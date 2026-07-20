@@ -6,9 +6,10 @@
  * 사용법:
  *   DATA_GO_KR_SERVICE_KEY=<일반 인증키(Decoding)> npm run fetch:holidays
  *
- * - 올해 기준 [작년 .. +2년]을 조회한다.
+ * - 올해 기준 [올해 .. +2년]을 조회한다.
  * - API가 빈 결과를 주는 연도(아직 미발표 등)는 기존 목록을 그대로 유지한다.
- * - 조회 범위 밖 연도의 기존 항목도 유지한다.
+ * - 지난 연도는 일정 계산에 쓸 일이 없으므로 목록에서 제거한다.
+ * - 조회 범위 밖의 미래 연도는 기존 항목을 유지한다.
  */
 import { readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
@@ -61,14 +62,16 @@ function readExisting() {
 }
 
 const thisYear = new Date().getFullYear()
-const years = [thisYear - 1, thisYear, thisYear + 1, thisYear + 2]
+const years = [thisYear, thisYear + 1, thisYear + 2]
 const existing = readExisting()
 
 const merged = new Map()
 existing.forEach(d => {
-  const set = merged.get(d.slice(0, 4)) ?? new Set()
+  const year = d.slice(0, 4)
+  if (Number(year) < thisYear) return // 지난 연도는 버린다
+  const set = merged.get(year) ?? new Set()
   set.add(d)
-  merged.set(d.slice(0, 4), set)
+  merged.set(year, set)
 })
 
 for (const year of years) {

@@ -1,17 +1,15 @@
 import { Fragment, useMemo } from 'react'
-import { MONTHS_KO } from '../../constants/holidays'
-import { useSchedules, useWorkdayContext } from '../../hooks'
-import { scheduleRange } from '../../lib/schedule'
+import { MONTHS_KO } from '../../constants/date'
 import { fmt, isWeekend, pad } from '../../lib/workdays'
 import { usePlannerStore } from '../../store/usePlannerStore'
+import { useHolidaySet, useScheduleRange, useSchedules } from '../../store/useScheduleStore'
 
 export function GanttChart() {
   const startDate = usePlannerStore(s => s.startDate)
   const roles = usePlannerStore(s => s.roles)
   const schedules = useSchedules()
-  const { holidaySet } = useWorkdayContext()
-
-  const range = scheduleRange(schedules)
+  const holidaySet = useHolidaySet()
+  const range = useScheduleRange()
 
   const cols = useMemo(() => {
     if (!range || !startDate) return []
@@ -33,7 +31,8 @@ export function GanttChart() {
   const today = new Date()
   today.setHours(0, 0, 0, 0)
   const todayFmt = fmt(today)
-  const isHoliday = (d: Date) => holidaySet.has(fmt(d))
+  /** 쉬는 날 배경 클래스. 헤더와 본문이 같은 기준을 쓰도록 한 곳에서 판정한다 */
+  const offClass = (d: Date) => (holidaySet.has(fmt(d)) ? 'holiday' : isWeekend(d) ? 'weekend' : '')
 
   const monthGroups: { label: string; count: number }[] = []
   let prevMo: string | null = null
@@ -61,7 +60,7 @@ export function GanttChart() {
           <tr>
             {cols.map((d, i) => {
               const isToday = fmt(d) === todayFmt
-              const cls = isToday ? 'today-header' : isHoliday(d) ? 'holiday' : isWeekend(d) ? 'weekend' : ''
+              const cls = isToday ? 'today-header' : offClass(d)
               return <th key={i} className={`date-cell ${cls}`} style={{ fontSize: 9 }}>{pad(d.getDate())}</th>
             })}
           </tr>
@@ -86,15 +85,16 @@ export function GanttChart() {
                       </td>
                       {cols.map((d, ci) => {
                         const df = fmt(d)
-                        const inRange = df > sf && df <= ef
                         const isToday = df === todayFmt
-                        const cls = inRange ? '' : isHoliday(d) ? 'holiday' : isWeekend(d) ? 'weekend' : ''
+                        // 기간 안이어도 쉬는 날엔 막대를 칠하지 않고 휴무 배경을 그대로 둔다
+                        const off = offClass(d)
+                        const filled = df > sf && df <= ef && !off
                         return (
                           <td
                             key={ci}
-                            className={`date-cell ${cls}`}
+                            className={`date-cell ${off}`}
                             style={{
-                              ...(inRange ? { background: r.palette.bar } : {}),
+                              ...(filled ? { background: r.palette.bar } : {}),
                               ...(isToday ? { borderLeft: '2px solid #E24B4A' } : {}),
                             }}
                           />

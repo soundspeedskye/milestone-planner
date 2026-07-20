@@ -51,6 +51,11 @@ describe('DEFAULT_HOLIDAYS (자동 생성 데이터)', () => {
       expect(DEFAULT_HOLIDAYS.some(d => d.startsWith(String(y)))).toBe(true)
     })
   })
+
+  it('지난 연도 공휴일은 담지 않는다', () => {
+    const year = new Date().getFullYear()
+    expect(DEFAULT_HOLIDAYS.filter(d => Number(d.slice(0, 4)) < year)).toEqual([])
+  })
 })
 
 describe('countWD', () => {

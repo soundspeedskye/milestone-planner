@@ -8,7 +8,9 @@ export function TaskPool() {
   const removePoolTask = usePlannerStore(s => s.removePoolTask)
   const updateTaskName = usePlannerStore(s => s.updateTaskName)
   const updateTaskDays = usePlannerStore(s => s.updateTaskDays)
-  const { poolId, setPoolId } = useDragStore()
+  // 필요한 값만 골라 구독한다 (스토어 전체를 구독하면 간트 드래그에도 리렌더된다)
+  const poolId = useDragStore(s => s.poolId)
+  const setPoolId = useDragStore(s => s.setPoolId)
 
   return (
     <div className="sidebar">

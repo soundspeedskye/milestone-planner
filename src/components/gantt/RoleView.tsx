@@ -1,21 +1,19 @@
-import { useSchedules, useWorkdayContext } from '../../hooks'
-import { scheduleRange } from '../../lib/schedule'
 import { countWD, fmt } from '../../lib/workdays'
 import { usePlannerStore } from '../../store/usePlannerStore'
+import { useIsWorkday, useScheduleRange, useSchedules } from '../../store/useScheduleStore'
 
 const PX = 30
 
 export function RoleView() {
   const roles = usePlannerStore(s => s.roles)
   const schedules = useSchedules()
-  const { isWD } = useWorkdayContext()
+  const isWD = useIsWorkday()
+  const range = useScheduleRange()
 
   const active = schedules.filter(s => Object.keys(s.roles).length > 0)
-  if (active.length === 0) {
+  if (active.length === 0 || !range) {
     return <div className="role-view"><div className="empty-gantt">간트에 태스크를 추가하면 직군별 뷰가 나타납니다</div></div>
   }
-
-  const range = scheduleRange(active)!
 
   return (
     <div className="role-view">

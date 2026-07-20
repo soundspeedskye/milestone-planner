@@ -1,18 +1,19 @@
-import { useSchedules } from '../hooks'
 import { buildMeetingMarkdown, copyToClipboard } from '../lib/markdown'
 import { buildMilestoneSnapshot, downloadJson } from '../lib/snapshot'
 import { usePlannerStore } from '../store/usePlannerStore'
+import { useScheduleStore } from '../store/useScheduleStore'
 import { useToastStore } from '../store/useToastStore'
 
 export function TopBar({ onOpenSettings }: { onOpenSettings: () => void }) {
   const startDate = usePlannerStore(s => s.startDate)
   const setStartDate = usePlannerStore(s => s.setStartDate)
   const resetAll = usePlannerStore(s => s.resetAll)
-  const schedules = useSchedules()
   const show = useToastStore(s => s.show)
 
+  // 일정은 버튼을 눌렀을 때만 필요해서 구독하지 않고 그때 꺼내 쓴다
   const snapshot = () => {
     const { ganttTasks, poolTasks, roles } = usePlannerStore.getState()
+    const { schedules } = useScheduleStore.getState()
     return buildMilestoneSnapshot({ startDate, schedules, ganttTasks, poolTasks, roles })
   }
 
@@ -28,7 +29,7 @@ export function TopBar({ onOpenSettings }: { onOpenSettings: () => void }) {
   }
 
   const handleReset = () => {
-    if (!confirm('초기화하면 저장된 데이터도 삭제돼요. 계속할까요?')) return
+    if (!confirm('태스크와 직군 설정이 모두 삭제돼요. (휴무일 설정은 유지돼요) 계속할까요?')) return
     resetAll()
     show('초기화됐어요')
   }
