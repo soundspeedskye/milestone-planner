@@ -14,6 +14,8 @@ export function HolidaySettings() {
     ;(acc[y] ??= []).push(d)
     return acc
   }, {})
+  const years = Object.keys(byYear).sort()
+  const yearRange = years.length ? `${years[0]}~${years[years.length - 1]}` : ''
 
   return (
     <>
@@ -43,8 +45,8 @@ export function HolidaySettings() {
         </div>
       )}
 
-      <div className="settings-section-title" style={{ marginTop: 8 }}>기본 공휴일 (2025~2027)</div>
-      <div className="modal-hint">체크를 해제하면 그 날은 영업일로 계산돼요.</div>
+      <div className="settings-section-title" style={{ marginTop: 8 }}>기본 공휴일 ({yearRange})</div>
+      <div className="modal-hint">공공데이터포털 기준 공휴일이에요. 체크를 해제하면 그 날은 영업일로 계산돼요.</div>
       <div className="holiday-list">
         {Object.entries(byYear).map(([year, dates]) => (
           <div key={year}>

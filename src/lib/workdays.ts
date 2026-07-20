@@ -12,9 +12,12 @@ export const isWeekend = (d: Date) => {
   return w === 0 || w === 6
 }
 
-/** 휴무일 설정을 반영한 "쉬는 날(주말 제외)" 판별용 Set */
-export function buildHolidaySet(config: HolidayConfig): Set<string> {
-  const set = new Set(DEFAULT_HOLIDAYS)
+/**
+ * 휴무일 설정을 반영한 "쉬는 날(주말 제외)" 판별용 Set.
+ * base는 테스트에서 고정 목록을 넣기 위한 것으로, 앱에서는 생략한다.
+ */
+export function buildHolidaySet(config: HolidayConfig, base: readonly string[] = DEFAULT_HOLIDAYS): Set<string> {
+  const set = new Set(base)
   config.disabled.forEach(d => set.delete(d))
   config.custom.forEach(d => set.add(d))
   return set

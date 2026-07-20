@@ -2,9 +2,10 @@ import { describe, expect, it } from 'vitest'
 import { DEFAULT_ROLES, ROLE_PALETTES } from '../constants/roles'
 import type { RoleSchedule, Task } from '../types'
 import { calcSchedules } from './schedule'
+import { TEST_HOLIDAYS } from './testHolidays'
 import { addWD, buildHolidaySet, fmt, makeIsWorkday, parseDate, type IsWorkday } from './workdays'
 
-const isWD = makeIsWorkday(buildHolidaySet({ custom: [], disabled: [] }))
+const isWD = makeIsWorkday(buildHolidaySet({ custom: [], disabled: [] }, TEST_HOLIDAYS))
 
 /** 레거시 HTML의 calcSchedules를 그대로 포팅한 참조 구현 (기획→PD/BE→FE 하드코딩) */
 interface LegacyTask { id: number; name: string; 기획: number; PD: number; BE: number; FE: number }

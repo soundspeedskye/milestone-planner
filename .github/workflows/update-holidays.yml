@@ -10,9 +10,11 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+    env:
+      AZURE_TOKEN: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: 22
           cache: npm
@@ -40,11 +42,12 @@ jobs:
       - name: Build
         if: steps.commit.outputs.changed == 'true'
         run: npm run build
+      # Azure 토큰이 등록되기 전에는 갱신·커밋까지만 하고 배포는 건너뛴다
       - name: Deploy
-        if: steps.commit.outputs.changed == 'true'
+        if: steps.commit.outputs.changed == 'true' && env.AZURE_TOKEN != ''
         uses: Azure/static-web-apps-deploy@v1
         with:
-          azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN }}
+          azure_static_web_apps_api_token: ${{ env.AZURE_TOKEN }}
           action: upload
           app_location: '/'
           output_location: 'dist'
