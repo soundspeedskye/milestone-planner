@@ -1,0 +1,51 @@
+name: Update holidays
+
+on:
+  schedule:
+    - cron: '0 0 1 * *' # 매월 1일 09:00 KST
+  workflow_dispatch:
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Fetch holidays from data.go.kr
+        run: npm run fetch:holidays
+        env:
+          DATA_GO_KR_SERVICE_KEY: ${{ secrets.DATA_GO_KR_SERVICE_KEY }}
+      - run: npm test
+      - name: Commit if changed
+        id: commit
+        run: |
+          if git diff --quiet src/constants/holidays.generated.ts; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "공휴일 변경 없음"
+          else
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git add src/constants/holidays.generated.ts
+            git commit -m "chore: 공휴일 데이터 자동 갱신 (data.go.kr)"
+            git push
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+      # GITHUB_TOKEN으로 push하면 deploy 워크플로가 자동 실행되지 않으므로 여기서 직접 배포한다
+      - name: Build
+        if: steps.commit.outputs.changed == 'true'
+        run: npm run build
+      - name: Deploy
+        if: steps.commit.outputs.changed == 'true'
+        uses: Azure/static-web-apps-deploy@v1
+        with:
+          azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN }}
+          action: upload
+          app_location: '/'
+          output_location: 'dist'
+          skip_app_build: true

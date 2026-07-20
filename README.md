@@ -9,7 +9,8 @@
 - **자동 스케줄링**: 직군별 소요일을 입력하면 영업일(주말·공휴일 제외) 기준으로 순차 일정을 계산해요
 - **직군 커스터마이즈**: 설정에서 직군 추가/삭제/이름·색상 변경, 직군 간 선후 관계("이후 시작") 설정
 - **시작일 고정**: 특정 태스크를 지정한 날짜부터 시작하도록 고정 (앞 일정과 겹치면 ⚠️ 경고)
-- **휴무일 관리**: 커스텀 휴무일 추가, 기본 공휴일(2025~2027) 개별 해제
+- **휴무일 관리**: 커스텀 휴무일 추가, 기본 공휴일 개별 해제
+- **공휴일 자동 갱신**: data.go.kr 특일정보 API 기반으로 매달 공휴일(임시공휴일 포함)을 자동 반영
 - **뷰 2종**: 태스크별 간트 차트 / 직군별 타임라인(공백 표시)
 - **저장·공유**: localStorage 자동 저장, JSON 내보내기, 회의록 Markdown 복사
 - 구버전(단일 HTML) localStorage 데이터는 첫 실행 시 자동 마이그레이션됩니다
@@ -57,6 +58,23 @@ src/
 
 > Azure Portal에서 GitHub 연동으로 생성하면 워크플로 파일과 시크릿이 자동 등록됩니다.
 > 이 저장소에는 미리 준비된 워크플로가 있으므로 시크릿만 등록하면 돼요.
+
+### 공휴일 자동 갱신 (data.go.kr)
+
+공휴일 목록([src/constants/holidays.generated.ts](src/constants/holidays.generated.ts))은
+[.github/workflows/update-holidays.yml](.github/workflows/update-holidays.yml)이 **매월 1일** 공공데이터포털
+특일정보 API로 재생성하고, 변경이 있으면 커밋 후 재배포합니다. 브라우저가 아닌 CI에서 호출하므로
+API 키가 노출되지 않고, CORS 문제도 없습니다.
+
+설정 방법:
+
+1. [공공데이터포털](https://www.data.go.kr) 회원가입 → **"특일 정보"** API 활용 신청 (무료, 즉시 승인)
+2. 마이페이지에서 **일반 인증키(Decoding)** 복사
+3. GitHub 저장소 → Settings → Secrets → `DATA_GO_KR_SERVICE_KEY`로 등록
+4. 수동 실행: Actions 탭에서 "Update holidays" → Run workflow, 로컬에서는
+   `DATA_GO_KR_SERVICE_KEY=<키> npm run fetch:holidays`
+
+키를 등록하기 전까지는 저장소에 들어있는 목록(2025~2027)이 그대로 사용됩니다.
 
 ### Vercel (대안)
 
