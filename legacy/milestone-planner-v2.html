@@ -1,0 +1,560 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>마일스톤 플래너</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f0f0ec;color:#1a1a18;min-height:100vh;}
+
+/* 레이아웃 */
+.app{display:grid;grid-template-columns:280px 1fr;grid-template-rows:auto 1fr;min-height:100vh;gap:0;}
+.topbar{grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;padding:12px 20px;background:#fff;border-bottom:1px solid #e0e0d8;gap:12px;flex-wrap:wrap;}
+.topbar h1{font-size:16px;font-weight:600;color:#1a1a18;}
+.topbar-right{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+.topbar label{font-size:12px;color:#666;}
+.topbar input[type="date"]{font-size:12px;padding:5px 8px;border:1px solid #ccc;border-radius:6px;background:#fff;color:#1a1a18;}
+.btn-save{font-size:12px;color:#fff;background:#378ADD;border:none;border-radius:6px;padding:6px 14px;cursor:pointer;font-weight:500;}
+.btn-save:hover{background:#185FA5;}
+.btn-reset{font-size:12px;color:#999;background:none;border:1px solid #e0e0d8;border-radius:6px;padding:6px 14px;cursor:pointer;}
+.btn-reset:hover{background:#f5f5f0;}
+
+/* 왼쪽 패널 */
+.sidebar{background:#fff;border-right:1px solid #e0e0d8;padding:16px;display:flex;flex-direction:column;gap:12px;overflow-y:auto;}
+.sidebar-title{font-size:11px;font-weight:600;color:#999;text-transform:uppercase;letter-spacing:.05em;}
+.hint{font-size:11px;color:#aaa;line-height:1.5;}
+
+.pool-task{background:#f8f8f5;border:1px solid #e0e0d8;border-radius:8px;padding:10px;cursor:grab;transition:box-shadow .15s;}
+.pool-task:hover{box-shadow:0 2px 8px rgba(0,0,0,.08);}
+.pool-task.dragging{opacity:.4;}
+.pool-task-name{font-size:13px;font-weight:500;color:#1a1a18;margin-bottom:6px;display:flex;align-items:center;gap:6px;}
+.pool-task-name input{font-size:13px;font-weight:500;border:none;background:transparent;outline:none;flex:1;color:#1a1a18;}
+.pool-task-name input::placeholder{color:#bbb;}
+.day-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;}
+.day-field{display:flex;flex-direction:column;gap:2px;}
+.day-field label{font-size:9px;color:#aaa;text-align:center;font-weight:500;}
+.day-field input{font-size:11px;text-align:center;border:1px solid #e0e0d8;border-radius:4px;padding:3px 2px;background:#fff;color:#1a1a18;width:100%;}
+.day-field input:focus{border-color:#378ADD;outline:none;}
+.pool-actions{display:flex;gap:4px;margin-top:6px;justify-content:flex-end;}
+.btn-remove{font-size:10px;color:#bbb;background:none;border:none;cursor:pointer;padding:2px 4px;}
+.btn-remove:hover{color:#E24B4A;}
+.btn-add-task{font-size:12px;color:#378ADD;background:none;border:1.5px dashed #378ADD;border-radius:8px;padding:8px;width:100%;cursor:pointer;margin-top:4px;}
+.btn-add-task:hover{background:#E6F1FB;}
+
+/* 오른쪽 메인 */
+.main{display:flex;flex-direction:column;overflow:hidden;}
+.main-inner{flex:1;overflow:auto;padding:16px;}
+
+/* 드롭존 */
+.drop-zone{border:2px dashed #e0e0d8;border-radius:10px;padding:24px;text-align:center;font-size:13px;color:#bbb;margin-bottom:16px;transition:border-color .15s,background .15s;}
+.drop-zone.over{border-color:#378ADD;background:#EBF4FC;color:#378ADD;}
+
+/* 간트 태스크 목록 */
+.gantt-tasks{display:flex;flex-direction:column;gap:6px;margin-bottom:16px;}
+.gantt-task-item{display:flex;align-items:center;gap:8px;background:#fff;border:1px solid #e0e0d8;border-radius:8px;padding:8px 10px;cursor:grab;}
+.gantt-task-item.dragging{opacity:.4;}
+.gantt-task-item.drag-over{border-color:#378ADD;background:#EBF4FC;}
+.gantt-task-label{flex:1;font-size:13px;font-weight:500;color:#1a1a18;}
+.gantt-task-days{display:flex;gap:6px;}
+.day-badge{font-size:10px;padding:2px 6px;border-radius:10px;font-weight:500;}
+.badge-기획{background:#E6F1FB;color:#0C447C;}
+.badge-PD{background:#E1F5EE;color:#085041;}
+.badge-BE{background:#FAEEDA;color:#633806;}
+.badge-FE{background:#FBEAF0;color:#72243E;}
+.btn-eject{font-size:11px;color:#bbb;background:none;border:none;cursor:pointer;padding:2px 6px;}
+.btn-eject:hover{color:#E24B4A;}
+.drag-handle-gantt{color:#ccc;font-size:14px;cursor:grab;}
+
+/* 요약 */
+.summary-bar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;}
+.sum-card{background:#fff;border:1px solid #e0e0d8;border-radius:8px;padding:8px 12px;min-width:100px;}
+.sum-label{font-size:10px;color:#999;margin-bottom:2px;}
+.sum-val{font-size:13px;font-weight:600;color:#1a1a18;}
+
+/* 탭 */
+.tabs{display:flex;gap:0;border-bottom:1px solid #e0e0d8;margin-bottom:12px;}
+.tab-btn{font-size:12px;padding:7px 14px;background:none;border:none;color:#999;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;}
+.tab-btn.active{color:#378ADD;border-bottom-color:#378ADD;font-weight:500;}
+.tab-panel{display:none;}
+.tab-panel.active{display:block;}
+
+/* 간트 차트 */
+.gantt-wrap{overflow-x:auto;border:1px solid #e0e0d8;border-radius:8px;}
+.gantt-table{border-collapse:collapse;width:max-content;min-width:100%;font-size:11px;}
+.gantt-table th{background:#f5f5f0;border:1px solid #e0e0d8;padding:4px 5px;font-weight:500;color:#666;white-space:nowrap;}
+.gantt-table td{border:1px solid #e8e8e0;white-space:nowrap;}
+.g-task-label{min-width:120px;font-size:11px;color:#1a1a18;font-weight:500;padding:5px 8px;}
+.g-role-label{min-width:34px;font-size:9px;text-align:center;padding:3px 4px;}
+.date-cell{min-width:22px;width:22px;padding:0;height:20px;}
+.month-header{font-size:10px;font-weight:600;color:#378ADD;background:#EBF4FC;text-align:left;padding:3px 6px;border-left:2px solid #378ADD;}
+.bar-기획{background:#B5D4F4;}.bar-PD{background:#9FE1CB;}.bar-BE{background:#FAC775;}.bar-FE{background:#F4C0D1;}
+.weekend{background:#f0f0ec!important;}.holiday{background:#FEF0F0!important;}
+.today-header{background:#FCEBEB!important;color:#A32D2D!important;font-weight:600;}
+.empty-gantt{font-size:13px;color:#bbb;text-align:center;padding:2rem;}
+
+/* 직군별 뷰 */
+.role-timeline{display:flex;flex-direction:column;gap:0;}
+.role-row{display:flex;align-items:stretch;border-bottom:1px solid #e0e0d8;}
+.role-row:last-child{border-bottom:none;}
+.role-name-cell{width:70px;min-width:70px;font-size:11px;font-weight:600;padding:10px 8px;display:flex;align-items:center;background:#fafafa;border-right:1px solid #e0e0d8;flex-shrink:0;}
+.role-blocks{flex:1;display:flex;align-items:center;padding:8px 6px;gap:0;min-height:48px;overflow-x:auto;}
+.block{display:flex;align-items:center;justify-content:center;border-radius:6px;font-size:10px;font-weight:500;padding:0 8px;height:30px;white-space:nowrap;flex-shrink:0;position:relative;}
+.block:hover::after{content:attr(data-tooltip);position:absolute;bottom:calc(100% + 4px);left:50%;transform:translateX(-50%);background:#1a1a18;color:#fff;font-size:10px;padding:4px 8px;border-radius:6px;white-space:nowrap;z-index:10;pointer-events:none;}
+.gap-block{display:flex;align-items:center;justify-content:center;height:30px;flex-shrink:0;border:1.5px dashed #E24B4A;border-radius:6px;padding:0 8px;}
+.gap-label{font-size:9px;color:#E24B4A;font-weight:500;white-space:nowrap;}
+.block-기획{background:#B5D4F4;color:#0C447C;}.block-PD{background:#9FE1CB;color:#085041;}
+.block-BE{background:#FAC775;color:#633806;}.block-FE{background:#F4C0D1;color:#72243E;}
+
+.legend{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px;}
+.legend-item{display:flex;align-items:center;gap:4px;font-size:11px;color:#666;}
+.legend-dot{width:10px;height:10px;border-radius:2px;}
+
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#1a1a18;color:#fff;font-size:12px;padding:8px 16px;border-radius:8px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:999;white-space:nowrap;}
+.toast.show{opacity:1;}
+</style>
+</head>
+<body>
+<div class="app">
+
+<!-- 상단바 -->
+<div class="topbar">
+  <h1>🗓 마일스톤 플래너</h1>
+  <div class="topbar-right">
+    <label>프로젝트 시작일</label>
+    <input type="date" id="startDate"/>
+    <button class="btn-reset" onclick="resetAll()">초기화</button>
+    <button class="btn-reset" onclick="copyMeetingMarkdown()">회의록 Markdown 복사</button>
+    <button class="btn-save" onclick="exportMilestoneJson()">💾 저장(JSON)</button>
+  </div>
+</div>
+
+<!-- 왼쪽: 태스크 풀 -->
+<div class="sidebar">
+  <div class="sidebar-title">태스크 보관함</div>
+  <div class="hint">태스크를 만들고 오른쪽 간트로 드래그하세요.<br>간트에서 다시 여기로 꺼낼 수도 있어요.</div>
+  <div id="poolList"></div>
+  <button class="btn-add-task" onclick="addPoolTask()">＋ 태스크 추가</button>
+</div>
+
+<!-- 오른쪽: 메인 -->
+<div class="main">
+  <div class="main-inner">
+
+    <!-- 드롭존 -->
+    <div class="drop-zone" id="dropZone">
+      ← 보관함에서 태스크를 여기로 드래그하면 일정에 추가돼요
+    </div>
+
+    <!-- 간트 태스크 순서 -->
+    <div id="ganttTaskList" class="gantt-tasks"></div>
+
+    <!-- 요약 -->
+    <div class="summary-bar" id="summaryBar"></div>
+
+    <!-- 탭 -->
+    <div class="legend">
+      <div class="legend-item"><div class="legend-dot" style="background:#B5D4F4"></div>기획</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#9FE1CB"></div>PD</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#FAC775"></div>BE</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#F4C0D1"></div>FE</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#FEF0F0;border:1px solid #f0c0c0;"></div>공휴일</div>
+      <div class="legend-item"><div style="width:10px;height:10px;border:1.5px dashed #E24B4A;border-radius:2px;"></div>공백</div>
+    </div>
+    <div class="tabs">
+      <button class="tab-btn active" onclick="switchTab('task')">태스크별</button>
+      <button class="tab-btn" onclick="switchTab('role')">직군별</button>
+    </div>
+    <div id="tab-task" class="tab-panel active">
+      <div class="gantt-wrap" id="ganttWrap"><div class="empty-gantt">간트에 태스크를 추가하면 차트가 나타납니다</div></div>
+    </div>
+    <div id="tab-role" class="tab-panel">
+      <div id="roleView" style="background:#fff;border:1px solid #e0e0d8;border-radius:8px;overflow:hidden;">
+        <div class="empty-gantt">간트에 태스크를 추가하면 직군별 뷰가 나타납니다</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+const HOLIDAYS=new Set(['2025-01-01','2025-01-28','2025-01-29','2025-01-30','2025-03-01','2025-05-05','2025-05-06','2025-06-06','2025-08-15','2025-10-03','2025-10-05','2025-10-06','2025-10-07','2025-10-08','2025-10-09','2025-12-25','2026-01-01','2026-02-17','2026-02-18','2026-02-19','2026-03-01','2026-03-02','2026-05-05','2026-05-25','2026-06-06','2026-08-15','2026-08-17','2026-09-24','2026-09-25','2026-09-26','2026-10-03','2026-10-09','2026-12-25','2027-01-01','2027-02-08','2027-02-09','2027-02-10','2027-03-01','2027-05-05','2027-05-13','2027-06-06','2027-08-15','2027-08-16','2027-09-14','2027-09-15','2027-09-16','2027-10-03','2027-10-04','2027-10-09','2027-12-25']);
+const ROLES=['기획','PD','BE','FE'];
+const ROLE_COLORS={'기획':'bar-기획','PD':'bar-PD','BE':'bar-BE','FE':'bar-FE'};
+const ROLE_HEADER={'기획':'#378ADD','PD':'#1D9E75','BE':'#BA7517','FE':'#D4537E'};
+const MONTHS_KO=['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'];
+const STORAGE_KEY='milestone_planner_v2';
+const EXPORT_FILE_NAME='milestone-current.json';
+
+// poolTasks: 보관함, ganttTasks: 간트에 올라간 것
+let poolTasks=[], ganttTasks=[];
+let dragSrcPool=null, dragSrcGantt=null, draggingPoolId=null, draggingGanttId=null;
+
+const pad=n=>String(n).padStart(2,'0');
+const fmt=d=>`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+const today=new Date(); today.setHours(0,0,0,0);
+const isHoliday=d=>HOLIDAYS.has(fmt(d));
+const isWeekend=d=>{const w=d.getDay();return w===0||w===6;};
+const isWD=d=>!isWeekend(d)&&!isHoliday(d);
+
+function addWD(from,days){
+  if(!days||days<=0)return new Date(from);
+  let d=new Date(from),c=0;
+  while(c<days){d.setDate(d.getDate()+1);if(isWD(d))c++;}
+  return d;
+}
+function countWD(from,to){
+  let d=new Date(from),c=0; d.setDate(d.getDate()+1);
+  while(d<=to){if(isWD(d))c++;d.setDate(d.getDate()+1);}
+  return c;
+}
+
+function showToast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2000);}
+
+function saveData(){
+  localStorage.setItem(STORAGE_KEY,JSON.stringify({startDate:document.getElementById('startDate').value,poolTasks,ganttTasks}));
+  showToast('저장됐어요 ✓');
+}
+
+function buildMilestoneSnapshot(){
+  const startVal=document.getElementById('startDate').value;
+  const projectStart=startVal?new Date(startVal+'T00:00:00'):new Date(today);
+  const schedules=ganttTasks.length?calcSchedules(projectStart):[];
+  const allEnds=[];
+  schedules.forEach(s=>Object.values(s.roles).forEach(r=>allEnds.push(r.end)));
+  const projectEnd=allEnds.length?fmt(new Date(Math.max(...allEnds.map(d=>d.getTime())))):startVal;
+  return {
+    version:1,
+    source:document.title,
+    savedAt:new Date().toISOString(),
+    startDate:startVal,
+    projectEnd,
+    tasks:schedules.map(s=>({
+      id:s.id,
+      name:s.name,
+      roles:Object.fromEntries(Object.entries(s.roles).map(([role,info])=>[role,{days:info.days,start:fmt(info.start),end:fmt(info.end)}]))
+    })),
+    poolTasks:poolTasks.map(t=>({id:t.id,name:t.name,기획:t.기획||0,PD:t.PD||0,BE:t.BE||0,FE:t.FE||0}))
+  };
+}
+
+function buildMeetingMarkdown(){
+  const data=buildMilestoneSnapshot();
+  const rows=[];
+  data.tasks.forEach(task=>{
+    ROLES.forEach(role=>{
+      const item=task.roles[role];
+      if(!item)return;
+      rows.push(`| ${role} | [${(task.name||'(무제)').replaceAll('|','\\|')}] | ${item.start} ~ ${item.end} | ${item.days}일 |`);
+    });
+  });
+  return [
+    '## 1️⃣ 마일스톤',
+    '',
+    `- 프로젝트 시작일: ${data.startDate||'-'}`,
+    `- 예상 종료일: ${data.projectEnd||'-'}`,
+    '',
+    '| 담당 | 내용 | 진행일 | 소요일 |',
+    '| --- | --- | --- | ---: |',
+    rows.length?rows.join('\n'):'|  | 표시할 마일스톤 없음 |  |  |'
+  ].join('\n');
+}
+
+async function copyMeetingMarkdown(){
+  const markdown=buildMeetingMarkdown();
+  try{
+    await navigator.clipboard.writeText(markdown);
+    showToast('회의록 Markdown이 복사됐어요 ✓');
+  }catch(e){
+    const area=document.createElement('textarea');
+    area.value=markdown;
+    document.body.appendChild(area);
+    area.select();
+    document.execCommand('copy');
+    area.remove();
+    showToast('회의록 Markdown이 복사됐어요 ✓');
+  }
+}
+
+async function exportMilestoneJson(){
+  saveData();
+  const json=JSON.stringify(buildMilestoneSnapshot(),null,2);
+  const blob=new Blob([json],{type:'application/json;charset=utf-8'});
+  if(window.showSaveFilePicker){
+    try{
+      const handle=await window.showSaveFilePicker({
+        suggestedName:EXPORT_FILE_NAME,
+        types:[{description:'JSON',accept:{'application/json':['.json']}}]
+      });
+      const writable=await handle.createWritable();
+      await writable.write(blob);
+      await writable.close();
+      showToast('milestone-current.json 저장 완료 ✓');
+      return;
+    }catch(e){
+      if(e&&e.name==='AbortError')return;
+    }
+  }
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;
+  a.download=EXPORT_FILE_NAME;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+  showToast('JSON 파일을 다운로드했어요');
+}
+
+function loadData(){
+  try{
+    const raw=localStorage.getItem(STORAGE_KEY);
+    if(!raw)return false;
+    const data=JSON.parse(raw);
+    if(data.startDate)document.getElementById('startDate').value=data.startDate;
+    if(data.poolTasks)poolTasks=data.poolTasks;
+    if(data.ganttTasks)ganttTasks=data.ganttTasks;
+    return true;
+  }catch(e){return false;}
+}
+
+function resetAll(){
+  if(!confirm('초기화하면 저장된 데이터도 삭제돼요. 계속할까요?'))return;
+  localStorage.removeItem(STORAGE_KEY);
+  poolTasks=[]; ganttTasks=[];
+  document.getElementById('startDate').value=fmt(today);
+  addPoolTask(); addPoolTask();
+  showToast('초기화됐어요');
+}
+
+function switchTab(tab){
+  document.querySelectorAll('.tab-btn').forEach((b,i)=>b.classList.toggle('active',(i===0&&tab==='task')||(i===1&&tab==='role')));
+  document.getElementById('tab-task').classList.toggle('active',tab==='task');
+  document.getElementById('tab-role').classList.toggle('active',tab==='role');
+}
+
+// ── 보관함 ──
+function addPoolTask(){
+  poolTasks.push({id:Date.now(),name:'',기획:0,PD:0,BE:0,FE:0});
+  renderPool(); render();
+}
+
+function removePoolTask(id){
+  poolTasks=poolTasks.filter(t=>t.id!==id);
+  renderPool(); render();
+}
+
+function updatePool(id,field,val){
+  const t=poolTasks.find(t=>t.id===id);
+  if(t){t[field]=field==='name'?val:(parseInt(val)||0);}
+}
+
+function renderPool(){
+  const list=document.getElementById('poolList');
+  list.innerHTML='';
+  poolTasks.forEach((t,i)=>{
+    const el=document.createElement('div');
+    el.className='pool-task'; el.draggable=true; el.dataset.id=t.id;
+    el.innerHTML=`
+      <div class="pool-task-name">
+        <span style="color:#ccc;font-size:13px;cursor:grab;">⠿</span>
+        <input placeholder="태스크명" value="${t.name}" oninput="updatePool(${t.id},'name',this.value)"/>
+      </div>
+      <div class="day-grid">
+        ${ROLES.map(r=>`<div class="day-field"><label style="color:${ROLE_HEADER[r]}">${r}</label><input type="number" min="0" step="1" placeholder="0" value="${t[r]||''}" oninput="updatePool(${t.id},'${r}',this.value)"/></div>`).join('')}
+      </div>
+      <div class="pool-actions"><button class="btn-remove" onclick="removePoolTask(${t.id})">✕ 삭제</button></div>`;
+    el.addEventListener('dragstart',e=>{draggingPoolId=t.id;el.classList.add('dragging');e.dataTransfer.effectAllowed='move';e.dataTransfer.setData('source','pool');});
+    el.addEventListener('dragend',()=>el.classList.remove('dragging'));
+    list.appendChild(el);
+  });
+}
+
+// ── 간트 태스크 목록 ──
+function ejectFromGantt(id){
+  const t=ganttTasks.find(t=>t.id===id);
+  if(t){poolTasks.push({...t});ganttTasks=ganttTasks.filter(t=>t.id!==id);}
+  renderPool(); renderGanttTaskList(); render();
+}
+
+function renderGanttTaskList(){
+  const list=document.getElementById('ganttTaskList');
+  list.innerHTML='';
+  if(ganttTasks.length===0){list.innerHTML='';return;}
+  ganttTasks.forEach((t,i)=>{
+    const el=document.createElement('div');
+    el.className='gantt-task-item'; el.draggable=true;
+    el.innerHTML=`
+      <span class="drag-handle-gantt">⠿</span>
+      <span class="gantt-task-label">${t.name||'(무제)'}</span>
+      <div class="gantt-task-days">
+        ${ROLES.filter(r=>t[r]>0).map(r=>`<span class="day-badge badge-${r}">${r} ${t[r]}일</span>`).join('')}
+      </div>
+      <button class="btn-eject" onclick="ejectFromGantt(${t.id})" title="보관함으로 꺼내기">↩</button>`;
+    el.addEventListener('dragstart',e=>{draggingGanttId=i;el.classList.add('dragging');e.dataTransfer.effectAllowed='move';e.dataTransfer.setData('source','gantt');});
+    el.addEventListener('dragend',()=>el.classList.remove('dragging'));
+    el.addEventListener('dragover',e=>{e.preventDefault();el.classList.add('drag-over');});
+    el.addEventListener('dragleave',()=>el.classList.remove('drag-over'));
+    el.addEventListener('drop',e=>{
+      e.preventDefault();el.classList.remove('drag-over');
+      const src=e.dataTransfer.getData('source');
+      if(src==='gantt'&&draggingGanttId!==null&&draggingGanttId!==i){
+        const m=ganttTasks.splice(draggingGanttId,1)[0];
+        ganttTasks.splice(i,0,m);
+        draggingGanttId=null;
+        renderGanttTaskList(); render();
+      }
+    });
+    list.appendChild(el);
+  });
+}
+
+// ── 드롭존 ──
+function setupDropZone(){
+  const dz=document.getElementById('dropZone');
+  dz.addEventListener('dragover',e=>{e.preventDefault();dz.classList.add('over');});
+  dz.addEventListener('dragleave',()=>dz.classList.remove('over'));
+  dz.addEventListener('drop',e=>{
+    e.preventDefault();dz.classList.remove('over');
+    const src=e.dataTransfer.getData('source');
+    if(src==='pool'&&draggingPoolId!==null){
+      const t=poolTasks.find(t=>t.id===draggingPoolId);
+      if(t){ganttTasks.push({...t});poolTasks=poolTasks.filter(t=>t.id!==draggingPoolId);}
+      draggingPoolId=null;
+      renderPool(); renderGanttTaskList(); render();
+    }
+  });
+}
+
+// ── 계산 ──
+function calcSchedules(projectStart){
+  const roleEnd={'기획':new Date(projectStart),'PD':new Date(projectStart),'BE':new Date(projectStart),'FE':new Date(projectStart)};
+  return ganttTasks.map(t=>{
+    const s={id:t.id,name:t.name||'(무제)',roles:{}};
+    const 기Days=t['기획']||0,PDd=t['PD']||0,BEd=t['BE']||0,FEd=t['FE']||0;
+    let 기End=new Date(roleEnd['기획']);
+    if(기Days>0){const st=new Date(roleEnd['기획']);기End=addWD(st,기Days);s.roles['기획']={start:st,end:new Date(기End),days:기Days};roleEnd['기획']=new Date(기End);}
+    if(PDd>0){const sb=new Date(Math.max(roleEnd['PD'].getTime(),기End.getTime()));const en=addWD(sb,PDd);s.roles['PD']={start:sb,end:new Date(en),days:PDd};roleEnd['PD']=new Date(en);}
+    if(BEd>0){const sb=new Date(Math.max(roleEnd['BE'].getTime(),기End.getTime()));const en=addWD(sb,BEd);s.roles['BE']={start:sb,end:new Date(en),days:BEd};roleEnd['BE']=new Date(en);}
+    const pdEnd=s.roles['PD']?s.roles['PD'].end:기End;
+    if(FEd>0){const sb=new Date(Math.max(roleEnd['FE'].getTime(),pdEnd.getTime()));const en=addWD(sb,FEd);s.roles['FE']={start:sb,end:new Date(en),days:FEd};roleEnd['FE']=new Date(en);}
+    return s;
+  });
+}
+
+// ── 직군별 뷰 ──
+function renderRoleView(schedules){
+  const rv=document.getElementById('roleView');
+  const active=schedules.filter(s=>Object.keys(s.roles).length>0);
+  if(active.length===0){rv.innerHTML='<div class="empty-gantt">간트에 태스크를 추가하면 직군별 뷰가 나타납니다</div>';return;}
+  const PX=30;
+  let html='<div class="role-timeline">';
+  ROLES.forEach(role=>{
+    const blocks=active.filter(s=>s.roles[role]).map(s=>({name:s.name,...s.roles[role]}));
+    if(blocks.length===0)return;
+    html+=`<div class="role-row"><div class="role-name-cell" style="color:${ROLE_HEADER[role]}">${role}</div><div class="role-blocks">`;
+    let prevEnd=null;
+    blocks.forEach(b=>{
+      if(prevEnd){
+        const gapWD=countWD(prevEnd,b.start);
+        if(gapWD>0){const gpx=Math.round(((b.start.getTime()-prevEnd.getTime())/86400000)*PX);html+=`<div class="gap-block" style="width:${Math.max(gpx,56)}px;"><span class="gap-label">공백 ${gapWD}일</span></div>`;}
+      }
+      const wpx=Math.max(Math.round(b.days*PX*1.4),64);
+      html+=`<div class="block block-${role}" style="width:${wpx}px;" data-tooltip="${b.name} | ${fmt(b.start)}~${fmt(b.end)} (${b.days}일)"><span style="overflow:hidden;text-overflow:ellipsis;max-width:100%;">${b.name} (${b.days}일)</span></div>`;
+      prevEnd=b.end;
+    });
+    html+='</div></div>';
+  });
+  const allEnds=[],allStarts=[];
+  active.forEach(s=>Object.values(s.roles).forEach(r=>{allEnds.push(r.end);allStarts.push(r.start);}));
+  const minT=Math.min(...allStarts.map(d=>d.getTime())),maxT=Math.max(...allEnds.map(d=>d.getTime()));
+  html+=`</div><div style="padding:8px 12px;border-top:1px solid #e0e0d8;font-size:11px;color:#999;background:#fafafa;">📅 ${fmt(new Date(minT))} ~ ${fmt(new Date(maxT))}</div>`;
+  rv.innerHTML=html;
+}
+
+// ── 메인 렌더 ──
+function render(){
+  const startVal=document.getElementById('startDate').value;
+  if(!startVal)return;
+  const projectStart=new Date(startVal+'T00:00:00');
+  const ganttWrap=document.getElementById('ganttWrap');
+  const summaryBar=document.getElementById('summaryBar');
+
+  if(ganttTasks.length===0){
+    ganttWrap.innerHTML='<div class="empty-gantt">간트에 태스크를 추가하면 차트가 나타납니다</div>';
+    document.getElementById('roleView').innerHTML='<div class="empty-gantt">간트에 태스크를 추가하면 직군별 뷰가 나타납니다</div>';
+    summaryBar.innerHTML='';return;
+  }
+
+  const schedules=calcSchedules(projectStart);
+  renderRoleView(schedules);
+
+  const allEnds=[];
+  schedules.forEach(s=>Object.values(s.roles).forEach(r=>allEnds.push(r.end)));
+  const projectEnd=allEnds.length?new Date(Math.max(...allEnds.map(d=>d.getTime()))):projectStart;
+
+  const roleTotals={};ROLES.forEach(r=>{roleTotals[r]=0;});
+  schedules.forEach(s=>ROLES.forEach(r=>{if(s.roles[r])roleTotals[r]+=s.roles[r].days;}));
+
+  let sumHTML=`<div class="sum-card"><div class="sum-label">시작일</div><div class="sum-val">${fmt(projectStart)}</div></div><div class="sum-card"><div class="sum-label">예상 종료</div><div class="sum-val">${fmt(projectEnd)}</div></div>`;
+  ROLES.forEach(r=>{if(roleTotals[r]>0)sumHTML+=`<div class="sum-card"><div class="sum-label" style="color:${ROLE_HEADER[r]}">${r} 총 소요</div><div class="sum-val">${roleTotals[r]}일</div></div>`;});
+  summaryBar.innerHTML=sumHTML;
+
+  const allStarts=[];
+  schedules.forEach(s=>Object.values(s.roles).forEach(r=>allStarts.push(r.start)));
+  const minDate=allStarts.length?new Date(Math.min(...allStarts.map(d=>d.getTime()))):projectStart;
+  const maxDate=new Date(projectEnd);maxDate.setDate(maxDate.getDate()+4);
+  const cols=[];let cur=new Date(minDate);
+  while(cur<=maxDate){cols.push(new Date(cur));cur.setDate(cur.getDate()+1);}
+
+  const todayFmt=fmt(today);
+  const monthGroups=[];let prevMo=null;
+  cols.forEach(d=>{const key=`${d.getFullYear()}-${d.getMonth()}`;
+    if(key!==prevMo){monthGroups.push({label:`${d.getFullYear()}년 ${MONTHS_KO[d.getMonth()]}`,count:1});prevMo=key;}
+    else monthGroups[monthGroups.length-1].count++;
+  });
+
+  let html='<table class="gantt-table"><thead>';
+  html+='<tr><th class="g-task-label" rowspan="2" style="vertical-align:middle;">태스크</th><th class="g-role-label" rowspan="2" style="vertical-align:middle;">직군</th>';
+  monthGroups.forEach(mg=>{html+=`<th colspan="${mg.count}" class="month-header">${mg.label}</th>`;});
+  html+='</tr><tr>';
+  cols.forEach(d=>{
+    const isToday=fmt(d)===todayFmt;
+    const cls=isToday?'today-header':isHoliday(d)?'holiday':isWeekend(d)?'weekend':'';
+    html+=`<th class="date-cell ${cls}" style="font-size:9px;">${pad(d.getDate())}</th>`;
+  });
+  html+='</tr></thead><tbody>';
+
+  schedules.forEach(s=>{
+    const rks=ROLES.filter(r=>s.roles[r]);if(rks.length===0)return;
+    rks.forEach((r,ri)=>{
+      const info=s.roles[r];const sf=fmt(info.start),ef=fmt(info.end);
+      html+='<tr>';
+      if(ri===0)html+=`<td class="g-task-label" rowspan="${rks.length}" style="vertical-align:middle;">${s.name}</td>`;
+      html+=`<td class="g-role-label" style="color:${ROLE_HEADER[r]};font-weight:500;">${r}<br><span style="color:#bbb;font-size:9px;">${info.days}일</span></td>`;
+      cols.forEach(d=>{
+        const df=fmt(d),inRange=df>sf&&df<=ef,isToday=df===todayFmt;
+        const cls=inRange?ROLE_COLORS[r]:isHoliday(d)?'holiday':isWeekend(d)?'weekend':'';
+        const style=isToday?'border-left:2px solid #E24B4A;':'';
+        html+=`<td class="date-cell ${cls}" style="${style}"></td>`;
+      });
+      html+='</tr>';
+    });
+  });
+  html+='</tbody></table>';
+  ganttWrap.innerHTML=html;
+}
+
+// 초기화
+document.getElementById('startDate').value=fmt(today);
+document.getElementById('startDate').addEventListener('change',render);
+setupDropZone();
+
+const loaded=loadData();
+if(!loaded){addPoolTask();addPoolTask();addPoolTask();}
+else{renderPool();renderGanttTaskList();render();}
+</script>
+</body>
+</html>
