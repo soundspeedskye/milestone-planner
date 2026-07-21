@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { calcSchedules, scheduleRange } from '../lib/schedule'
-import { buildHolidaySet, makeIsWorkday, parseDate, type IsWorkday } from '../lib/workdays'
+import { buildHolidaySet, makeIsWorkday, makeRoleIsWorkday, parseDate, type IsWorkday } from '../lib/workdays'
 import { usePlannerStore, type PlannerState } from './usePlannerStore'
 import type { TaskSchedule } from '../types'
 
@@ -13,6 +13,10 @@ import type { TaskSchedule } from '../types'
 interface ScheduleState {
   holidaySet: Set<string>
   isWD: IsWorkday
+  /** 직군 id → 그 직군의 휴무일까지 반영한 영업일 판별 함수 (휴무일이 없는 직군은 없음) */
+  isWDByRole: Record<string, IsWorkday>
+  /** 직군 id → 그 직군만 쉬는 날 Set (차트에서 해당 줄만 쉬는 날로 칠할 때 쓴다) */
+  roleOffSet: Record<string, Set<string>>
   schedules: TaskSchedule[]
   range: { min: Date; max: Date } | null
 }
@@ -20,9 +24,19 @@ interface ScheduleState {
 function derive(s: PlannerState): ScheduleState {
   const holidaySet = buildHolidaySet(s.holidays)
   const isWD = makeIsWorkday(holidaySet)
+
+  const isWDByRole: Record<string, IsWorkday> = {}
+  const roleOffSet: Record<string, Set<string>> = {}
+  s.roles.forEach(r => {
+    const dates = s.holidays.byRole[r.id]
+    if (!dates?.length) return
+    isWDByRole[r.id] = makeRoleIsWorkday(holidaySet, dates)
+    roleOffSet[r.id] = new Set(dates)
+  })
+
   const projectStart = s.startDate ? parseDate(s.startDate) : new Date()
-  const schedules = calcSchedules(s.ganttTasks, s.roles, projectStart, isWD)
-  return { holidaySet, isWD, schedules, range: scheduleRange(schedules) }
+  const schedules = calcSchedules(s.ganttTasks, s.roles, projectStart, isWD, isWDByRole)
+  return { holidaySet, isWD, isWDByRole, roleOffSet, schedules, range: scheduleRange(schedules) }
 }
 
 export const useScheduleStore = create<ScheduleState>(() => derive(usePlannerStore.getState()))
@@ -35,5 +49,9 @@ export const useSchedules = () => useScheduleStore(s => s.schedules)
 export const useScheduleRange = () => useScheduleStore(s => s.range)
 /** 휴무일 설정이 반영된 공휴일 Set */
 export const useHolidaySet = () => useScheduleStore(s => s.holidaySet)
-/** 영업일 판별 함수 */
+/** 영업일 판별 함수 (전사 기준) */
 export const useIsWorkday = () => useScheduleStore(s => s.isWD)
+/** 직군별 휴무일이 반영된 영업일 판별 함수 모음 */
+export const useIsWDByRole = () => useScheduleStore(s => s.isWDByRole)
+/** 직군 id → 그 직군만 쉬는 날 Set */
+export const useRoleOffSet = () => useScheduleStore(s => s.roleOffSet)

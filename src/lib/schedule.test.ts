@@ -148,6 +148,23 @@ describe('calcSchedules — 신규 기능', () => {
     expect(b.warnings.length).toBeGreaterThan(0)
   })
 
+  it('직군별 휴무일은 그 직군의 소요일 계산에서만 빠진다', () => {
+    // 2026-07-22(수)를 기획만 쉰다고 두면 기획은 하루 밀리고, BE는 그대로다
+    const 기획WD = makeIsWorkday(
+      buildHolidaySet({ custom: ['2026-07-22'], disabled: [] }, TEST_HOLIDAYS),
+    )
+    const tasks: Task[] = [{ id: 1, name: 'A', days: { 기획: 3, BE: 3 } }]
+    const [base] = calcSchedules(tasks, DEFAULT_ROLES, parseDate('2026-07-20'), isWD)
+    const [s] = calcSchedules(tasks, DEFAULT_ROLES, parseDate('2026-07-20'), isWD, { 기획: 기획WD })
+
+    // 기획 3일: 기본은 21~23, 22를 쉬면 하루 밀려 24 종료
+    expect(fmt(base.roles['기획'].end)).toBe('2026-07-23')
+    expect(fmt(s.roles['기획'].end)).toBe('2026-07-24')
+    // BE는 기획 종료를 기다려 시작이 밀리지만, 자기 소요일(3일)은 그대로 센다 (27~29)
+    expect(fmt(s.roles['BE'].start)).toBe('2026-07-24')
+    expect(fmt(s.roles['BE'].end)).toBe('2026-07-29')
+  })
+
   it('fixedStart여도 태스크 내부 직군 의존은 지킨다', () => {
     const tasks: Task[] = [
       { id: 1, name: 'A', days: { 기획: 3, PD: 2 }, fixedStart: '2026-07-20' },

@@ -12,9 +12,9 @@ export function TopBar({ onOpenSettings }: { onOpenSettings: () => void }) {
 
   // 일정은 버튼을 눌렀을 때만 필요해서 구독하지 않고 그때 꺼내 쓴다
   const snapshot = () => {
-    const { ganttTasks, poolTasks, roles } = usePlannerStore.getState()
+    const { ganttTasks, poolTasks, roles, holidays } = usePlannerStore.getState()
     const { schedules } = useScheduleStore.getState()
-    return buildMilestoneSnapshot({ startDate, schedules, ganttTasks, poolTasks, roles })
+    return buildMilestoneSnapshot({ startDate, schedules, ganttTasks, poolTasks, roles, holidays })
   }
 
   const handleCopyMarkdown = async () => {

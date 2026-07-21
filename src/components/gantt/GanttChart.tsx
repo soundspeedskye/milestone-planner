@@ -1,14 +1,15 @@
 import { Fragment, useMemo } from 'react'
 import { MONTHS_KO } from '../../constants/date'
-import { fmt, isWeekend, pad } from '../../lib/workdays'
+import { fmt, isWeekend, pad, parseDate } from '../../lib/workdays'
 import { usePlannerStore } from '../../store/usePlannerStore'
-import { useHolidaySet, useScheduleRange, useSchedules } from '../../store/useScheduleStore'
+import { useHolidaySet, useRoleOffSet, useScheduleRange, useSchedules } from '../../store/useScheduleStore'
 
 export function GanttChart() {
   const startDate = usePlannerStore(s => s.startDate)
   const roles = usePlannerStore(s => s.roles)
   const schedules = useSchedules()
   const holidaySet = useHolidaySet()
+  const roleOffSet = useRoleOffSet()
   const range = useScheduleRange()
 
   const cols = useMemo(() => {
@@ -16,7 +17,9 @@ export function GanttChart() {
     const maxDate = new Date(range.max)
     maxDate.setDate(maxDate.getDate() + 4)
     const list: Date[] = []
-    const cur = new Date(range.min)
+    // 차트는 항상 프로젝트 시작일부터 그린다. 고정 시작일 때문에 첫 일정이
+    // 시작일보다 앞설 수도 있어서 둘 중 이른 날을 첫 칸으로 쓴다.
+    const cur = new Date(Math.min(parseDate(startDate).getTime(), range.min.getTime()))
     while (cur <= maxDate) {
       list.push(new Date(cur))
       cur.setDate(cur.getDate() + 1)
@@ -75,6 +78,7 @@ export function GanttChart() {
                   const info = s.roles[r.id]
                   const sf = fmt(info.start)
                   const ef = fmt(info.end)
+                  const roleOff = roleOffSet[r.id]
                   return (
                     <tr key={r.id}>
                       {ri === 0 && (
@@ -86,13 +90,16 @@ export function GanttChart() {
                       {cols.map((d, ci) => {
                         const df = fmt(d)
                         const isToday = df === todayFmt
-                        // 기간 안이어도 쉬는 날엔 막대를 칠하지 않고 휴무 배경을 그대로 둔다
-                        const off = offClass(d)
-                        const filled = df > sf && df <= ef && !off
+                        // 기간 안이어도 쉬는 날엔 막대 대신 빗금을 깔아 쉬는 날임을 드러낸다.
+                        // 이 직군만 쉬는 날은 같은 줄에서만 쉬는 날로 친다
+                        const off = offClass(d) || (roleOff?.has(df) ? 'role-off' : '')
+                        const inRange = df > sf && df <= ef
+                        const filled = inRange && !off
+                        const hatched = inRange && !!off
                         return (
                           <td
                             key={ci}
-                            className={`date-cell ${off}`}
+                            className={`date-cell ${off}${hatched ? ' bar-off' : ''}`}
                             style={{
                               ...(filled ? { background: r.palette.bar } : {}),
                               ...(isToday ? { borderLeft: '2px solid #E24B4A' } : {}),

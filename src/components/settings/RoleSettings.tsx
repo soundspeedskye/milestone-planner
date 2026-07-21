@@ -30,9 +30,9 @@ export function RoleSettings() {
               onChange={e => renameRole(role.id, e.target.value)}
               placeholder="직군명"
             />
-            <button className="btn-icon" disabled={i === 0} onClick={() => moveRole(role.id, -1)} title="위로">▲</button>
-            <button className="btn-icon" disabled={i === roles.length - 1} onClick={() => moveRole(role.id, 1)} title="아래로">▼</button>
-            <button className="btn-icon danger" onClick={() => handleRemove(role.id, role.name)} title="직군 삭제">✕</button>
+            <button className="btn-icon tip" disabled={i === 0} onClick={() => moveRole(role.id, -1)} data-tooltip="위로" aria-label="직군 순서 위로">▲</button>
+            <button className="btn-icon tip" disabled={i === roles.length - 1} onClick={() => moveRole(role.id, 1)} data-tooltip="아래로" aria-label="직군 순서 아래로">▼</button>
+            <button className="btn-icon danger tip tip-right" onClick={() => handleRemove(role.id, role.name)} data-tooltip="직군 삭제" aria-label={`${role.name} 직군 삭제`}>✕</button>
           </div>
           <div className="palette-row">
             {ROLE_PALETTES.map((p, pi) => (
@@ -41,7 +41,7 @@ export function RoleSettings() {
                 className={`palette-swatch ${role.palette.header === p.header ? 'selected' : ''}`}
                 style={{ background: p.bar }}
                 onClick={() => setRolePalette(role.id, p)}
-                title="색상 선택"
+                aria-label="색상 선택"
               />
             ))}
           </div>

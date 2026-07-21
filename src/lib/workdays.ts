@@ -16,7 +16,10 @@ export const isWeekend = (d: Date) => {
  * 휴무일 설정을 반영한 "쉬는 날(주말 제외)" 판별용 Set.
  * base는 테스트에서 고정 목록을 넣기 위한 것으로, 앱에서는 생략한다.
  */
-export function buildHolidaySet(config: HolidayConfig, base: readonly string[] = DEFAULT_HOLIDAYS): Set<string> {
+export function buildHolidaySet(
+  config: Pick<HolidayConfig, 'custom' | 'disabled'>,
+  base: readonly string[] = DEFAULT_HOLIDAYS,
+): Set<string> {
   const set = new Set(base)
   config.disabled.forEach(d => set.delete(d))
   config.custom.forEach(d => set.add(d))
@@ -25,6 +28,16 @@ export function buildHolidaySet(config: HolidayConfig, base: readonly string[] =
 
 export function makeIsWorkday(holidays: Set<string>): IsWorkday {
   return d => !isWeekend(d) && !holidays.has(fmt(d))
+}
+
+/** 전사 휴무일에 그 직군만 쉬는 날을 더한 판별 함수 */
+export function makeRoleIsWorkday(holidays: Set<string>, roleDates: readonly string[]): IsWorkday {
+  if (!roleDates.length) return makeIsWorkday(holidays)
+  const off = new Set(roleDates)
+  return d => {
+    const s = fmt(d)
+    return !isWeekend(d) && !holidays.has(s) && !off.has(s)
+  }
 }
 
 /** from 다음 날부터 세어 days번째 영업일을 반환 (기존 addWD와 동일) */

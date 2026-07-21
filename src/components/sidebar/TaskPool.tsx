@@ -38,6 +38,14 @@ export function TaskPool() {
                 value={t.name}
                 onChange={e => updateTaskName(t.id, e.target.value)}
               />
+              <button
+                className="btn-remove btn-remove-icon tip tip-right tip-below"
+                onClick={() => removePoolTask(t.id)}
+                data-tooltip="태스크 삭제"
+                aria-label="태스크 삭제"
+              >
+                ✕
+              </button>
             </div>
             <div className="day-grid">
               {roles.map(r => (
@@ -53,9 +61,6 @@ export function TaskPool() {
                   />
                 </div>
               ))}
-            </div>
-            <div className="pool-actions">
-              <button className="btn-remove" onClick={() => removePoolTask(t.id)}>✕ 삭제</button>
             </div>
           </div>
         ))}

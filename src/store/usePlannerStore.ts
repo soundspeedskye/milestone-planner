@@ -34,6 +34,8 @@ export interface PlannerState {
   addCustomHoliday: (d: string) => void
   removeCustomHoliday: (d: string) => void
   toggleDefaultHoliday: (d: string) => void
+  addRoleHoliday: (roleId: string, d: string) => void
+  removeRoleHoliday: (roleId: string, d: string) => void
 
   resetAll: () => void
 }
@@ -83,7 +85,7 @@ function initialData() {
     poolTasks: legacy?.poolTasks ?? emptyTasks(),
     ganttTasks: legacy?.ganttTasks ?? [],
     roles: DEFAULT_ROLES,
-    holidays: { custom: [], disabled: [] } as HolidayConfig,
+    holidays: { custom: [], disabled: [], byRole: {} } as HolidayConfig,
   }
 }
 
@@ -137,11 +139,16 @@ export const usePlannerStore = create<PlannerState>()(
         const palette = ROLE_PALETTES[s.roles.length % ROLE_PALETTES.length]
         return { roles: [...s.roles, { id, name: `직군 ${s.roles.length + 1}`, palette, dependsOn: [] }] }
       }),
-      removeRole: id => set(s => ({
-        roles: s.roles
-          .filter(r => r.id !== id)
-          .map(r => ({ ...r, dependsOn: r.dependsOn.filter(d => d !== id) })),
-      })),
+      // 직군이 사라지면 그 직군에만 걸어둔 휴무일도 같이 정리한다
+      removeRole: id => set(s => {
+        const { [id]: _dropped, ...byRole } = s.holidays.byRole
+        return {
+          roles: s.roles
+            .filter(r => r.id !== id)
+            .map(r => ({ ...r, dependsOn: r.dependsOn.filter(d => d !== id) })),
+          holidays: { ...s.holidays, byRole },
+        }
+      }),
       renameRole: (id, name) => set(s => ({
         roles: s.roles.map(r => (r.id === id ? { ...r, name } : r)),
       })),
@@ -180,6 +187,21 @@ export const usePlannerStore = create<PlannerState>()(
         }
       }),
 
+      addRoleHoliday: (roleId, d) => set(s => {
+        const cur = s.holidays.byRole[roleId] ?? []
+        if (cur.includes(d)) return s
+        return { holidays: { ...s.holidays, byRole: { ...s.holidays.byRole, [roleId]: [...cur, d].sort() } } }
+      }),
+      removeRoleHoliday: (roleId, d) => set(s => {
+        const cur = s.holidays.byRole[roleId] ?? []
+        const next = cur.filter(x => x !== d)
+        const byRole = { ...s.holidays.byRole }
+        // 빈 배열을 남기면 저장 데이터에 쓸모없는 키가 쌓인다
+        if (next.length) byRole[roleId] = next
+        else delete byRole[roleId]
+        return { holidays: { ...s.holidays, byRole } }
+      }),
+
       // 휴무일 설정은 프로젝트와 무관한 회사 단위 정보라 초기화 대상에서 뺀다
       resetAll: () => {
         localStorage.removeItem(LEGACY_STORAGE_KEY)
@@ -193,22 +215,25 @@ export const usePlannerStore = create<PlannerState>()(
     }),
     {
       name: STORAGE_KEY,
-      version: 2,
+      version: 3,
       /**
        * v2: 기본 공휴일 목록에서 지난 연도가 빠지면서, 저장된 disabled에 남은
        * 매칭되지 않는 과거 날짜를 걸러낸다. custom은 사용자가 넣은 값이라 그대로 둔다.
+       * v3: 직군별 휴무일(byRole)이 생겨서, 이전에 저장된 데이터에 빈 객체를 채운다.
        */
       migrate: (persisted, version) => {
         const state = persisted as PlannerState
-        if (version >= 2 || !state?.holidays) return state
-        const thisYear = new Date().getFullYear()
-        return {
-          ...state,
-          holidays: {
-            ...state.holidays,
-            disabled: state.holidays.disabled.filter(d => Number(d.slice(0, 4)) >= thisYear),
-          },
+        if (!state?.holidays) return state
+        let holidays = state.holidays
+        if (version < 2) {
+          const thisYear = new Date().getFullYear()
+          holidays = {
+            ...holidays,
+            disabled: holidays.disabled.filter(d => Number(d.slice(0, 4)) >= thisYear),
+          }
         }
+        if (!holidays.byRole) holidays = { ...holidays, byRole: {} }
+        return { ...state, holidays }
       },
     },
   ),
