@@ -67,7 +67,7 @@ export function NewProjectModal({
               required
             />
           </label>
-          <p className="auth-hint">다른 회원이 이 프로젝트를 열려면 이 비밀번호가 필요해요. 나중에 설정에서 바꿀 수 있어요.</p>
+          <p className="auth-hint">다른 회원이 이 프로젝트를 열려면 이 비밀번호가 필요해요.</p>
           {error && <p className="auth-error">{error}</p>}
           <button type="submit" className="auth-submit" disabled={busy}>
             {busy ? (importing ? '가져오는 중…' : '만드는 중…') : (importing ? '가져오기' : '만들기')}

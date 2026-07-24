@@ -3,6 +3,8 @@
 직군별 소요일 기반으로 프로젝트 일정을 자동 계산하는 마일스톤 플래너입니다.
 단일 HTML 파일([legacy/milestone-planner-v2.html](legacy/milestone-planner-v2.html))에서 React + TypeScript + Vite 구조로 발전시켰습니다.
 
+> 👥 사용자용 안내는 [사용 설명서](docs/사용설명서.md)를 참고하세요. (회원가입·로그인 정책, 프로젝트 비밀번호 정책 등)
+
 ## 기능
 
 - **태스크 보관함 ↔ 간트**: 태스크를 만들어 드래그로 일정에 추가하고, 순서를 바꾸거나 다시 꺼낼 수 있어요
