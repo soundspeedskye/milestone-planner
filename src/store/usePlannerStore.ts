@@ -1,11 +1,7 @@
 import { create } from 'zustand'
-import { persist } from 'zustand/middleware'
 import { DEFAULT_ROLES, ROLE_PALETTES } from '../constants/roles'
 import { fmt } from '../lib/workdays'
-import type { HolidayConfig, RoleDef, RolePalette, Task } from '../types'
-
-const STORAGE_KEY = 'milestone_planner_v3'
-const LEGACY_STORAGE_KEY = 'milestone_planner_v2'
+import type { HolidayConfig, PlannerData, RoleDef, RolePalette, Task } from '../types'
 
 export interface PlannerState {
   startDate: string
@@ -13,6 +9,9 @@ export interface PlannerState {
   ganttTasks: Task[]
   roles: RoleDef[]
   holidays: HolidayConfig
+
+  /** 프로젝트 내용을 스토어에 주입 (열람/전환 시) */
+  loadProject: (data: PlannerData) => void
 
   setStartDate: (v: string) => void
   addPoolTask: () => void
@@ -53,49 +52,41 @@ const emptyTask = (id: number): Task => ({ id, name: '', days: {} })
 /** 처음 열었을 때와 초기화했을 때 같은 개수로 시작한다 */
 const emptyTasks = () => [emptyTask(1), emptyTask(2), emptyTask(3)]
 
-/** 구버전(단일 HTML) localStorage 데이터를 새 포맷으로 변환 */
-interface LegacyTask { id: number; name: string; [role: string]: unknown }
-function readLegacyV2(): { startDate?: string; poolTasks: Task[]; ganttTasks: Task[] } | null {
-  try {
-    if (localStorage.getItem(STORAGE_KEY)) return null
-    const raw = localStorage.getItem(LEGACY_STORAGE_KEY)
-    if (!raw) return null
-    const data = JSON.parse(raw)
-    const convert = (t: LegacyTask): Task => ({
-      id: t.id,
-      name: t.name || '',
-      days: Object.fromEntries(
-        DEFAULT_ROLES.map(r => [r.id, Number(t[r.id]) || 0]).filter(([, d]) => d),
-      ),
-    })
-    return {
-      startDate: typeof data.startDate === 'string' ? data.startDate : undefined,
-      poolTasks: Array.isArray(data.poolTasks) ? data.poolTasks.map(convert) : [],
-      ganttTasks: Array.isArray(data.ganttTasks) ? data.ganttTasks.map(convert) : [],
-    }
-  } catch {
-    return null
+/** 새 프로젝트의 기본 내용 */
+export function defaultPlannerData(): PlannerData {
+  return {
+    startDate: todayStr(),
+    poolTasks: emptyTasks(),
+    ganttTasks: [],
+    roles: DEFAULT_ROLES,
+    holidays: { custom: [], disabled: [], byRole: {} },
   }
 }
 
-function initialData() {
-  const legacy = readLegacyV2()
-  return {
-    startDate: legacy?.startDate ?? todayStr(),
-    poolTasks: legacy?.poolTasks ?? emptyTasks(),
-    ganttTasks: legacy?.ganttTasks ?? [],
-    roles: DEFAULT_ROLES,
-    holidays: { custom: [], disabled: [], byRole: {} } as HolidayConfig,
-  }
+/** 현재 스토어 상태를 저장용 스냅샷으로 뽑아낸다 */
+export function plannerSnapshot(): PlannerData {
+  const { startDate, poolTasks, ganttTasks, roles, holidays } = usePlannerStore.getState()
+  return { startDate, poolTasks, ganttTasks, roles, holidays }
 }
 
 const updateTask = (tasks: Task[], id: number, patch: (t: Task) => Task) =>
   tasks.map(t => (t.id === id ? patch(t) : t))
 
 export const usePlannerStore = create<PlannerState>()(
-  persist(
     set => ({
-      ...initialData(),
+      ...defaultPlannerData(),
+
+      loadProject: data => set({
+        startDate: data.startDate ?? todayStr(),
+        poolTasks: data.poolTasks ?? emptyTasks(),
+        ganttTasks: data.ganttTasks ?? [],
+        roles: data.roles ?? DEFAULT_ROLES,
+        holidays: {
+          custom: data.holidays?.custom ?? [],
+          disabled: data.holidays?.disabled ?? [],
+          byRole: data.holidays?.byRole ?? {},
+        },
+      }),
 
       setStartDate: v => set({ startDate: v }),
 
@@ -202,39 +193,12 @@ export const usePlannerStore = create<PlannerState>()(
         return { holidays: { ...s.holidays, byRole } }
       }),
 
-      // 휴무일 설정은 프로젝트와 무관한 회사 단위 정보라 초기화 대상에서 뺀다
-      resetAll: () => {
-        localStorage.removeItem(LEGACY_STORAGE_KEY)
-        set({
-          startDate: todayStr(),
-          poolTasks: emptyTasks(),
-          ganttTasks: [],
-          roles: DEFAULT_ROLES,
-        })
-      },
+      // 태스크·직군만 비우고 휴무일 설정은 유지한다
+      resetAll: () => set({
+        startDate: todayStr(),
+        poolTasks: emptyTasks(),
+        ganttTasks: [],
+        roles: DEFAULT_ROLES,
+      }),
     }),
-    {
-      name: STORAGE_KEY,
-      version: 3,
-      /**
-       * v2: 기본 공휴일 목록에서 지난 연도가 빠지면서, 저장된 disabled에 남은
-       * 매칭되지 않는 과거 날짜를 걸러낸다. custom은 사용자가 넣은 값이라 그대로 둔다.
-       * v3: 직군별 휴무일(byRole)이 생겨서, 이전에 저장된 데이터에 빈 객체를 채운다.
-       */
-      migrate: (persisted, version) => {
-        const state = persisted as PlannerState
-        if (!state?.holidays) return state
-        let holidays = state.holidays
-        if (version < 2) {
-          const thisYear = new Date().getFullYear()
-          holidays = {
-            ...holidays,
-            disabled: holidays.disabled.filter(d => Number(d.slice(0, 4)) >= thisYear),
-          }
-        }
-        if (!holidays.byRole) holidays = { ...holidays, byRole: {} }
-        return { ...state, holidays }
-      },
-    },
-  ),
 )

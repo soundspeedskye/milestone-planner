@@ -46,3 +46,12 @@ export interface HolidayConfig {
   /** 직군 id → 그 직군만 쉬는 날 (YYYY-MM-DD). 해당 직군의 일정 계산에서만 제외된다 */
   byRole: Record<string, string[]>
 }
+
+/** 프로젝트 하나에 저장되는 플래너 상태 전체 (projects.data jsonb) */
+export interface PlannerData {
+  startDate: string
+  poolTasks: Task[]
+  ganttTasks: Task[]
+  roles: RoleDef[]
+  holidays: HolidayConfig
+}
