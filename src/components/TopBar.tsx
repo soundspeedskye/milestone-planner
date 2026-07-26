@@ -3,12 +3,22 @@ import { buildMilestoneSnapshot, downloadJson } from '../lib/snapshot'
 import { usePlannerStore } from '../store/usePlannerStore'
 import { useScheduleStore } from '../store/useScheduleStore'
 import { useToastStore } from '../store/useToastStore'
+import { useWorkspaceStore } from '../store/useWorkspaceStore'
+
+const saveLabel: Record<string, string> = {
+  idle: '', saving: '저장 중…', saved: '저장됨 ✓', error: '저장 실패',
+}
 
 export function TopBar({ onOpenSettings }: { onOpenSettings: () => void }) {
   const startDate = usePlannerStore(s => s.startDate)
   const setStartDate = usePlannerStore(s => s.setStartDate)
   const resetAll = usePlannerStore(s => s.resetAll)
   const show = useToastStore(s => s.show)
+
+  const current = useWorkspaceStore(s => s.current)
+  const readonly = useWorkspaceStore(s => s.readonly)
+  const saveState = useWorkspaceStore(s => s.saveState)
+  const backToLanding = useWorkspaceStore(s => s.backToLanding)
 
   // 일정은 버튼을 눌렀을 때만 필요해서 구독하지 않고 그때 꺼내 쓴다
   const snapshot = () => {
@@ -36,12 +46,24 @@ export function TopBar({ onOpenSettings }: { onOpenSettings: () => void }) {
 
   return (
     <div className="topbar">
-      <h1>🗓 마일스톤 플래너</h1>
+      <div className="topbar-left">
+        <button className="btn-back" onClick={backToLanding} title="프로젝트 목록으로">← 목록</button>
+        <h1>{current?.name ?? '마일스톤 플래너'}</h1>
+        {readonly
+          ? <span className="ro-badge">👁 읽기 전용</span>
+          : <span className="save-state">{saveLabel[saveState]}</span>}
+      </div>
       <div className="topbar-right">
         <label htmlFor="startDate">프로젝트 시작일</label>
-        <input type="date" id="startDate" value={startDate} onChange={e => setStartDate(e.target.value)} />
-        <button className="btn-reset" onClick={onOpenSettings}>⚙️ 설정</button>
-        <button className="btn-reset" onClick={handleReset}>초기화</button>
+        <input
+          type="date"
+          id="startDate"
+          value={startDate}
+          onChange={e => setStartDate(e.target.value)}
+          disabled={readonly}
+        />
+        {!readonly && <button className="btn-reset" onClick={onOpenSettings}>⚙️ 설정</button>}
+        {!readonly && <button className="btn-reset" onClick={handleReset}>초기화</button>}
         <button className="btn-reset" onClick={handleCopyMarkdown}>회의록 Markdown 복사</button>
         <button className="btn-save" onClick={handleExport}>💾 저장(JSON)</button>
       </div>

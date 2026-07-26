@@ -12,6 +12,7 @@
     "fetch:holidays": "node scripts/fetch-holidays.mjs"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.110.8",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "zustand": "^5.0.5"
