@@ -4,6 +4,9 @@ import { getLegacyData, hasLegacyData, markLegacyImported } from '../../lib/lega
 import type { PlannerData } from '../../types'
 import { useWorkspaceStore } from '../../store/useWorkspaceStore'
 import { useToastStore } from '../../store/useToastStore'
+import { LATEST_UPDATE } from '../../constants/changelog'
+import { getLastSeenUpdate, markUpdatesSeen } from '../../lib/updateNotice'
+import { UpdateModal } from '../UpdateModal'
 import { NewProjectModal } from './NewProjectModal'
 import { PasswordPrompt } from './PasswordPrompt'
 
@@ -20,8 +23,20 @@ export function ProjectGrid() {
   const [creating, setCreating] = useState(false)
   const [importData, setImportData] = useState<PlannerData | null>(null)
   const [legacyAvailable, setLegacyAvailable] = useState(() => hasLegacyData())
+  const [showUpdate, setShowUpdate] = useState(false)
   const openProject = useWorkspaceStore(s => s.openProject)
   const show = useToastStore(s => s.show)
+
+  // 로그인 후 목록 진입 시, 안 본 최신 업데이트가 있으면 1회 안내한다.
+  // 키가 없는 사용자(신규·기능 배포 전부터 쓰던 기존 사용자 모두)도 최신을 1회 본다.
+  useEffect(() => {
+    if (getLastSeenUpdate() !== LATEST_UPDATE) setShowUpdate(true)
+  }, [])
+
+  const closeUpdate = () => {
+    markUpdatesSeen()
+    setShowUpdate(false)
+  }
 
   const startImport = () => {
     const data = getLegacyData()
@@ -100,6 +115,7 @@ export function ProjectGrid() {
         ))}
       </div>
 
+      {showUpdate && <UpdateModal onClose={closeUpdate} />}
       {prompt && <PasswordPrompt project={prompt} onClose={() => setPrompt(null)} />}
       {creating && <NewProjectModal onClose={() => setCreating(false)} />}
       {importData && (
