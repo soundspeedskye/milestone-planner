@@ -21,16 +21,19 @@ export function calcSchedules(
   isWD: IsWorkday,
   isWDByRole: Record<string, IsWorkday> = {},
 ): TaskSchedule[] {
+  // roleEnd는 "그 직군이 마지막으로 일한 날(inclusive)"을 뜻한다.
+  // 프로젝트 시작 전날로 초기화해야 첫 작업일이 projectStart 당일이 된다.
+  const floor = new Date(projectStart);
+  floor.setDate(floor.getDate() - 1);
   const roleEnd: Record<string, Date> = {};
   roles.forEach((r) => {
-    roleEnd[r.id] = new Date(projectStart);
+    roleEnd[r.id] = new Date(floor);
   });
   const roleById = new Map(roles.map((r) => [r.id, r]));
 
   return tasks.map((task) => {
     const s: TaskSchedule = {
       id: task.id,
-      name: task.name || "(무제)",
       roles: {},
       warnings: [],
     };
@@ -44,28 +47,36 @@ export function calcSchedules(
       if (cached) return cached;
       const role = roleById.get(roleId);
       if (!role || computing.has(roleId))
-        return roleEnd[roleId] ?? new Date(projectStart);
+        return roleEnd[roleId] ?? new Date(floor);
       computing.add(roleId);
 
       const days = task.days[roleId] || 0;
       let result: Date;
       if (days > 0) {
+        const wd = isWDByRole[roleId] ?? isWD;
+        const firstWDon = (d: Date) => (wd(d) ? new Date(d) : addWD(d, 1, wd));
         const depEnds = role.dependsOn.map(effectiveEnd);
         const depMax = depEnds.length
           ? Math.max(...depEnds.map((d) => d.getTime()))
           : 0;
-        let startT = Math.max(roleEnd[roleId].getTime(), depMax);
+        // 첫 작업일 = 마지막으로 막힌 날(직전 종료·의존 종료) 다음 영업일.
+        const blocked = new Date(Math.max(roleEnd[roleId].getTime(), depMax));
+        let start = addWD(blocked, 1, wd);
         if (fixedStart) {
-          const fixedT = Math.max(fixedStart.getTime(), depMax);
-          if (fixedT < roleEnd[roleId].getTime()) {
+          // 고정 시작일 당일부터 시작하되(휴무면 다음 영업일), 의존은 계속 지킨다.
+          start = firstWDon(fixedStart);
+          if (depMax) {
+            const depFirst = addWD(new Date(depMax), 1, wd);
+            if (depFirst > start) start = depFirst;
+          }
+          if (start <= roleEnd[roleId]) {
             s.warnings.push(
               `${role.name}: \n 시작일이 앞 일정(${fmt(roleEnd[roleId])} 종료)과 겹쳐요`,
             );
           }
-          startT = fixedT;
         }
-        const start = new Date(startT);
-        const end = addWD(start, days, isWDByRole[roleId] ?? isWD);
+        // start가 1일차이므로 나머지 days-1 영업일을 더한다. (days=1이면 당일 종료)
+        const end = addWD(start, days - 1, wd);
         s.roles[roleId] = { start, end, days };
         if (end > roleEnd[roleId]) roleEnd[roleId] = new Date(end);
         result = end;

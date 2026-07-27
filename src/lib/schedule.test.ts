@@ -7,41 +7,47 @@ import { addWD, buildHolidaySet, fmt, makeIsWorkday, parseDate, type IsWorkday }
 
 const isWD = makeIsWorkday(buildHolidaySet({ custom: [], disabled: [] }, TEST_HOLIDAYS))
 
-/** 레거시 HTML의 calcSchedules를 그대로 포팅한 참조 구현 (기획→PD/BE→FE 하드코딩) */
+/**
+ * calcSchedules와 동일한 규칙을 4개 기본 직군(기획→PD/BE→FE)에 하드코딩한 참조 구현.
+ * inclusive 모델: 설정한 시작일(projectStart) 당일이 1일차이고, 직전/의존 종료일
+ * 다음 영업일부터 이어서 센다.
+ */
 interface LegacyTask { id: number; name: string; 기획: number; PD: number; BE: number; FE: number }
-function legacyCalc(tasks: LegacyTask[], projectStart: Date, wd: IsWorkday) {
+function refCalc(tasks: LegacyTask[], projectStart: Date, wd: IsWorkday) {
+  // roleEnd = 마지막으로 일한 날(inclusive). 시작 전날로 두면 첫날이 projectStart가 된다.
+  const floor = new Date(projectStart); floor.setDate(floor.getDate() - 1)
   const roleEnd: Record<string, Date> = {
-    기획: new Date(projectStart), PD: new Date(projectStart),
-    BE: new Date(projectStart), FE: new Date(projectStart),
+    기획: new Date(floor), PD: new Date(floor), BE: new Date(floor), FE: new Date(floor),
   }
+  const startAfter = (boundary: Date) => addWD(boundary, 1, wd) // 경계일 다음 영업일 = 첫 작업일
   return tasks.map(t => {
     const s: { id: number; name: string; roles: Record<string, RoleSchedule> } =
       { id: t.id, name: t.name || '(무제)', roles: {} }
     const 기Days = t.기획 || 0, PDd = t.PD || 0, BEd = t.BE || 0, FEd = t.FE || 0
     let 기End = new Date(roleEnd['기획'])
     if (기Days > 0) {
-      const st = new Date(roleEnd['기획'])
-      기End = addWD(st, 기Days, wd)
+      const st = startAfter(roleEnd['기획'])
+      기End = addWD(st, 기Days - 1, wd)
       s.roles['기획'] = { start: st, end: new Date(기End), days: 기Days }
       roleEnd['기획'] = new Date(기End)
     }
     if (PDd > 0) {
-      const sb = new Date(Math.max(roleEnd['PD'].getTime(), 기End.getTime()))
-      const en = addWD(sb, PDd, wd)
-      s.roles['PD'] = { start: sb, end: new Date(en), days: PDd }
+      const st = startAfter(new Date(Math.max(roleEnd['PD'].getTime(), 기End.getTime())))
+      const en = addWD(st, PDd - 1, wd)
+      s.roles['PD'] = { start: st, end: new Date(en), days: PDd }
       roleEnd['PD'] = new Date(en)
     }
     if (BEd > 0) {
-      const sb = new Date(Math.max(roleEnd['BE'].getTime(), 기End.getTime()))
-      const en = addWD(sb, BEd, wd)
-      s.roles['BE'] = { start: sb, end: new Date(en), days: BEd }
+      const st = startAfter(new Date(Math.max(roleEnd['BE'].getTime(), 기End.getTime())))
+      const en = addWD(st, BEd - 1, wd)
+      s.roles['BE'] = { start: st, end: new Date(en), days: BEd }
       roleEnd['BE'] = new Date(en)
     }
     const pdEnd = s.roles['PD'] ? s.roles['PD'].end : 기End
     if (FEd > 0) {
-      const sb = new Date(Math.max(roleEnd['FE'].getTime(), pdEnd.getTime()))
-      const en = addWD(sb, FEd, wd)
-      s.roles['FE'] = { start: sb, end: new Date(en), days: FEd }
+      const st = startAfter(new Date(Math.max(roleEnd['FE'].getTime(), pdEnd.getTime())))
+      const en = addWD(st, FEd - 1, wd)
+      s.roles['FE'] = { start: st, end: new Date(en), days: FEd }
       roleEnd['FE'] = new Date(en)
     }
     return s
@@ -58,7 +64,7 @@ function normalize(s: { roles: Record<string, RoleSchedule> }) {
   )
 }
 
-describe('calcSchedules — 레거시 로직과의 동일성', () => {
+describe('calcSchedules — 참조 구현과의 동일성', () => {
   const scenarios: { name: string; tasks: LegacyTask[] }[] = [
     {
       name: '전 직군 소요일이 있는 태스크 2개',
@@ -92,9 +98,9 @@ describe('calcSchedules — 레거시 로직과의 동일성', () => {
   scenarios.forEach(({ name, tasks }) => {
     it(name, () => {
       const start = parseDate('2026-09-14')
-      const legacy = legacyCalc(tasks, start, isWD)
+      const ref = refCalc(tasks, start, isWD)
       const modern = calcSchedules(tasks.map(toNewTask), DEFAULT_ROLES, start, isWD)
-      expect(modern.map(normalize)).toEqual(legacy.map(normalize))
+      expect(modern.map(normalize)).toEqual(ref.map(normalize))
     })
   })
 })
@@ -110,10 +116,10 @@ describe('calcSchedules — 신규 기능', () => {
       [{ id: 1, name: 't', days: { A: 2, B: 3, C: 1 } }],
       roles, parseDate('2026-07-20'), isWD,
     )
-    // A: 화~수(21~22), B: 22 이후 3일 → 23,24,27, C: 27 이후 1일 → 28
-    expect(fmt(s.roles['A'].end)).toBe('2026-07-22')
-    expect(fmt(s.roles['B'].end)).toBe('2026-07-27')
-    expect(fmt(s.roles['C'].end)).toBe('2026-07-28')
+    // A: 월~화(20~21), B: A 종료 다음날부터 3일 → 22,23,24, C: B 다음 영업일 1일 → 27
+    expect(fmt(s.roles['A'].end)).toBe('2026-07-21')
+    expect(fmt(s.roles['B'].end)).toBe('2026-07-24')
+    expect(fmt(s.roles['C'].end)).toBe('2026-07-27')
   })
 
   it('의존 순환이 있어도 무한루프 없이 계산된다', () => {
@@ -157,12 +163,12 @@ describe('calcSchedules — 신규 기능', () => {
     const [base] = calcSchedules(tasks, DEFAULT_ROLES, parseDate('2026-07-20'), isWD)
     const [s] = calcSchedules(tasks, DEFAULT_ROLES, parseDate('2026-07-20'), isWD, { 기획: 기획WD })
 
-    // 기획 3일: 기본은 21~23, 22를 쉬면 하루 밀려 24 종료
-    expect(fmt(base.roles['기획'].end)).toBe('2026-07-23')
-    expect(fmt(s.roles['기획'].end)).toBe('2026-07-24')
-    // BE는 기획 종료를 기다려 시작이 밀리지만, 자기 소요일(3일)은 그대로 센다 (27~29)
+    // 기획 3일: 기본은 20~22, 22를 쉬면 하루 밀려 23 종료
+    expect(fmt(base.roles['기획'].end)).toBe('2026-07-22')
+    expect(fmt(s.roles['기획'].end)).toBe('2026-07-23')
+    // BE는 기획 종료를 기다려 시작이 밀리지만, 자기 소요일(3일)은 그대로 센다 (24,27,28)
     expect(fmt(s.roles['BE'].start)).toBe('2026-07-24')
-    expect(fmt(s.roles['BE'].end)).toBe('2026-07-29')
+    expect(fmt(s.roles['BE'].end)).toBe('2026-07-28')
   })
 
   it('fixedStart여도 태스크 내부 직군 의존은 지킨다', () => {

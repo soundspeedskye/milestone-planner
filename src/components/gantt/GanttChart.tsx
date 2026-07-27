@@ -4,6 +4,14 @@ import { fmt, isWeekend, pad, parseDate } from '../../lib/workdays'
 import { usePlannerStore } from '../../store/usePlannerStore'
 import { useHolidaySet, useRoleOffSet, useScheduleRange, useSchedules } from '../../store/useScheduleStore'
 
+/** 태스크 이름 라벨. 이름만 이 셀에서 구독해, 이름 입력이 그리드 전체 리렌더로 번지지 않게 한다. */
+function TaskLabel({ id, rowSpan }: { id: number; rowSpan: number }) {
+  const name = usePlannerStore(s => s.ganttTasks.find(t => t.id === id)?.name)
+  return (
+    <td className="g-task-label" rowSpan={rowSpan} style={{ verticalAlign: 'middle' }}>{name || '(무제)'}</td>
+  )
+}
+
 export function GanttChart() {
   const startDate = usePlannerStore(s => s.startDate)
   const roles = usePlannerStore(s => s.roles)
@@ -27,27 +35,45 @@ export function GanttChart() {
     return list
   }, [range?.min.getTime(), range?.max.getTime(), startDate])
 
-  if (!range || !startDate) {
-    return <div className="gantt-wrap"><div className="empty-gantt">간트에 태스크를 추가하면 차트가 나타납니다</div></div>
-  }
-
+  // 오늘(자정 기준) 문자열. 매 렌더 계산해도 fmt 한 번이라 값이 그대로면
+  // 아래 colMeta 메모가 재계산되지 않는다(자정을 넘기면 자연히 갱신).
   const today = new Date()
   today.setHours(0, 0, 0, 0)
   const todayFmt = fmt(today)
-  /** 쉬는 날 배경 클래스. 헤더와 본문이 같은 기준을 쓰도록 한 곳에서 판정한다 */
-  const offClass = (d: Date) => (holidaySet.has(fmt(d)) ? 'holiday' : isWeekend(d) ? 'weekend' : '')
 
-  const monthGroups: { label: string; count: number }[] = []
-  let prevMo: string | null = null
-  cols.forEach(d => {
-    const key = `${d.getFullYear()}-${d.getMonth()}`
-    if (key !== prevMo) {
-      monthGroups.push({ label: `${d.getFullYear()}년 ${MONTHS_KO[d.getMonth()]}`, count: 1 })
-      prevMo = key
-    } else {
-      monthGroups[monthGroups.length - 1].count++
-    }
-  })
+  // 컬럼별 날짜 문자열·쉬는 날 판정·오늘 여부를 한 번만 계산한다.
+  // (기존엔 셀마다 fmt/offClass를 다시 호출해 렌더당 수천 번씩 돌았다)
+  const colMeta = useMemo(
+    () => cols.map(d => {
+      const df = fmt(d)
+      return {
+        df,
+        date: pad(d.getDate()),
+        off: holidaySet.has(df) ? 'holiday' : isWeekend(d) ? 'weekend' : '',
+        isToday: df === todayFmt,
+      }
+    }),
+    [cols, holidaySet, todayFmt],
+  )
+
+  const monthGroups = useMemo(() => {
+    const groups: { label: string; count: number }[] = []
+    let prevMo: string | null = null
+    cols.forEach(d => {
+      const key = `${d.getFullYear()}-${d.getMonth()}`
+      if (key !== prevMo) {
+        groups.push({ label: `${d.getFullYear()}년 ${MONTHS_KO[d.getMonth()]}`, count: 1 })
+        prevMo = key
+      } else {
+        groups[groups.length - 1].count++
+      }
+    })
+    return groups
+  }, [cols])
+
+  if (!range || !startDate) {
+    return <div className="gantt-wrap"><div className="empty-gantt">간트에 태스크를 추가하면 차트가 나타납니다</div></div>
+  }
 
   return (
     <div className="gantt-wrap">
@@ -61,10 +87,9 @@ export function GanttChart() {
             ))}
           </tr>
           <tr>
-            {cols.map((d, i) => {
-              const isToday = fmt(d) === todayFmt
-              const cls = isToday ? 'today-header' : offClass(d)
-              return <th key={i} className={`date-cell ${cls}`} style={{ fontSize: 9 }}>{pad(d.getDate())}</th>
+            {colMeta.map((c, i) => {
+              const cls = c.isToday ? 'today-header' : c.off
+              return <th key={i} className={`date-cell ${cls}`} style={{ fontSize: 9 }}>{c.date}</th>
             })}
           </tr>
         </thead>
@@ -81,19 +106,15 @@ export function GanttChart() {
                   const roleOff = roleOffSet[r.id]
                   return (
                     <tr key={r.id}>
-                      {ri === 0 && (
-                        <td className="g-task-label" rowSpan={rks.length} style={{ verticalAlign: 'middle' }}>{s.name}</td>
-                      )}
+                      {ri === 0 && <TaskLabel id={s.id} rowSpan={rks.length} />}
                       <td className="g-role-label" style={{ color: r.palette.header, fontWeight: 500 }}>
                         {r.name}<br /><span style={{ color: '#bbb', fontSize: 9 }}>{info.days}일</span>
                       </td>
-                      {cols.map((d, ci) => {
-                        const df = fmt(d)
-                        const isToday = df === todayFmt
+                      {colMeta.map((c, ci) => {
                         // 기간 안이어도 쉬는 날엔 막대 대신 빗금을 깔아 쉬는 날임을 드러낸다.
                         // 이 직군만 쉬는 날은 같은 줄에서만 쉬는 날로 친다
-                        const off = offClass(d) || (roleOff?.has(df) ? 'role-off' : '')
-                        const inRange = df > sf && df <= ef
+                        const off = c.off || (roleOff?.has(c.df) ? 'role-off' : '')
+                        const inRange = c.df >= sf && c.df <= ef
                         const filled = inRange && !off
                         const hatched = inRange && !!off
                         return (
@@ -102,7 +123,7 @@ export function GanttChart() {
                             className={`date-cell ${off}${hatched ? ' bar-off' : ''}`}
                             style={{
                               ...(filled ? { background: r.palette.bar } : {}),
-                              ...(isToday ? { borderLeft: '2px solid #E24B4A' } : {}),
+                              ...(c.isToday ? { borderLeft: '2px solid #E24B4A' } : {}),
                             }}
                           />
                         )

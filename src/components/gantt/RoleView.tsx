@@ -4,6 +4,23 @@ import { useIsWDByRole, useIsWorkday, useScheduleRange, useSchedules } from '../
 
 const PX = 30
 
+/** 직군 블록. 태스크 이름만 여기서 구독해, 이름 입력이 뷰 전체 리렌더로 번지지 않게 한다. */
+function RoleBlock({ id, days, start, end, bar, barText }: {
+  id: number; days: number; start: Date; end: Date; bar: string; barText: string
+}) {
+  const name = usePlannerStore(s => s.ganttTasks.find(t => t.id === id)?.name) || '(무제)'
+  const wpx = Math.max(Math.round(days * PX * 1.4), 64)
+  return (
+    <div
+      className="block"
+      style={{ width: wpx, background: bar, color: barText }}
+      data-tooltip={`${name} | ${fmt(start)}~${fmt(end)} (${days}일)`}
+    >
+      <span className="block-text">{name} ({days}일)</span>
+    </div>
+  )
+}
+
 export function RoleView() {
   const roles = usePlannerStore(s => s.roles)
   const schedules = useSchedules()
@@ -22,7 +39,7 @@ export function RoleView() {
         {roles.map(role => {
           const blocks = active
             .filter(s => s.roles[role.id])
-            .map(s => ({ name: s.name, ...s.roles[role.id] }))
+            .map(s => ({ id: s.id, ...s.roles[role.id] }))
           if (blocks.length === 0) return null
 
           // 공백도 그 직군이 실제로 일할 수 있는 날 기준으로 센다
@@ -31,7 +48,9 @@ export function RoleView() {
           const items: React.ReactNode[] = []
           blocks.forEach((b, i) => {
             if (prevEnd) {
-              const gapWD = countWD(prevEnd, b.start, roleWD)
+              // prevEnd(직전 마지막 작업일)와 b.start(이번 첫 작업일)가 모두
+              // inclusive라, 연속이면 countWD가 b.start를 1로 세므로 1을 뺀다.
+              const gapWD = countWD(prevEnd, b.start, roleWD) - 1
               if (gapWD > 0) {
                 const gpx = Math.round(((b.start.getTime() - prevEnd.getTime()) / 86400000) * PX)
                 items.push(
@@ -41,16 +60,16 @@ export function RoleView() {
                 )
               }
             }
-            const wpx = Math.max(Math.round(b.days * PX * 1.4), 64)
             items.push(
-              <div
+              <RoleBlock
                 key={i}
-                className="block"
-                style={{ width: wpx, background: role.palette.bar, color: role.palette.barText }}
-                data-tooltip={`${b.name} | ${fmt(b.start)}~${fmt(b.end)} (${b.days}일)`}
-              >
-                <span className="block-text">{b.name} ({b.days}일)</span>
-              </div>,
+                id={b.id}
+                days={b.days}
+                start={b.start}
+                end={b.end}
+                bar={role.palette.bar}
+                barText={role.palette.barText}
+              />,
             )
             prevEnd = b.end
           })
