@@ -119,7 +119,16 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => {
   }
 })
 
-// 탭을 닫거나 새로고침하기 직전 대기 중인 저장을 밀어넣는다
+// 페이지를 떠나기 직전 대기 중인 저장을 밀어넣는다.
+// beforeunload 는 async fetch 완료를 보장하지 않으므로,
+// 페이지가 아직 살아 있는 visibilitychange(hidden) 시점에 저장한다.
 if (typeof window !== 'undefined') {
-  window.addEventListener('beforeunload', () => useWorkspaceStore.getState().flush())
+  const flushPending = () => useWorkspaceStore.getState().flush()
+  // 탭 전환·앱 전환·탭 닫기 등 대부분의 이탈에서 가장 먼저,
+  // 그리고 페이지가 아직 살아 있을 때 발생한다 → 저장 fetch 가 완료될 시간이 있다.
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') flushPending()
+  })
+  // beforeunload 가 뜨지 않는 모바일 사파리 등을 위한 백업
+  window.addEventListener('pagehide', flushPending)
 }

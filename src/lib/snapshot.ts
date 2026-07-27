@@ -44,6 +44,7 @@ export function buildMilestoneSnapshot(args: {
   const { startDate, schedules, ganttTasks, poolTasks, roles, holidays } = args
   const range = scheduleRange(schedules)
   const fixedById = new Map(ganttTasks.map(t => [t.id, t.fixedStart]))
+  const nameById = new Map(ganttTasks.map(t => [t.id, t.name]))
   return {
     version: 3,
     source: '마일스톤 플래너',
@@ -53,7 +54,7 @@ export function buildMilestoneSnapshot(args: {
     roles: roles.map(r => ({ id: r.id, name: r.name, dependsOn: r.dependsOn })),
     tasks: schedules.map(s => ({
       id: s.id,
-      name: s.name,
+      name: nameById.get(s.id) || '(무제)',
       ...(fixedById.get(s.id) ? { fixedStart: fixedById.get(s.id) } : {}),
       roles: Object.fromEntries(
         Object.entries(s.roles).map(([roleId, info]) => [

@@ -39,9 +39,30 @@ function derive(s: PlannerState): ScheduleState {
   return { holidaySet, isWD, isWDByRole, roleOffSet, schedules, range: scheduleRange(schedules) }
 }
 
+/**
+ * 일정 계산에 실제로 영향을 주는 입력만 뽑은 시그니처.
+ * 태스크 이름은 계산과 무관하므로 제외한다 → 이름만 바뀐 렌더에서는
+ * derive 재실행·스토어 갱신을 건너뛰어 그리드 전체 리렌더를 막는다.
+ * (직군 이름은 warnings 문구에 쓰이므로 roles 는 통째로 포함)
+ */
+function scheduleSignature(s: PlannerState): string {
+  return JSON.stringify({
+    startDate: s.startDate,
+    holidays: s.holidays,
+    roles: s.roles,
+    gantt: s.ganttTasks.map(t => ({ id: t.id, days: t.days, fixedStart: t.fixedStart })),
+  })
+}
+
 export const useScheduleStore = create<ScheduleState>(() => derive(usePlannerStore.getState()))
 
-usePlannerStore.subscribe(state => useScheduleStore.setState(derive(state)))
+let lastSig = scheduleSignature(usePlannerStore.getState())
+usePlannerStore.subscribe(state => {
+  const sig = scheduleSignature(state)
+  if (sig === lastSig) return
+  lastSig = sig
+  useScheduleStore.setState(derive(state))
+})
 
 /** 계산된 태스크 일정 */
 export const useSchedules = () => useScheduleStore(s => s.schedules)

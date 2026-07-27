@@ -32,7 +32,6 @@ export interface RoleSchedule {
 
 export interface TaskSchedule {
   id: number
-  name: string
   roles: Record<string, RoleSchedule>
   /** 시작일 고정으로 같은 직군의 앞 일정과 겹칠 때 경고 메시지 */
   warnings: string[]
