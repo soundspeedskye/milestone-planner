@@ -106,7 +106,7 @@ as $$
          p.updated_at
   from public.projects p
   left join public.profiles pr on pr.id = p.owner_id
-  order by p.updated_at desc;
+  order by p.created_at desc;
 $$;
 
 revoke all on function public.list_projects() from public;
