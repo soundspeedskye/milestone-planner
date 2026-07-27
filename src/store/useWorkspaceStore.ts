@@ -39,6 +39,11 @@ interface WorkspaceState {
 let saveTimer: ReturnType<typeof setTimeout> | null = null
 let unsubscribe: (() => void) | null = null
 
+/** 프로젝트를 열 때 히스토리 항목을 하나 쌓아, 브라우저 뒤로가기로 목록에 돌아올 수 있게 한다 */
+const pushProjectHistory = () => {
+  if (typeof window !== 'undefined') window.history.pushState({ mp: 'project' }, '')
+}
+
 export const useWorkspaceStore = create<WorkspaceState>((set, get) => {
   /** 현재 프로젝트 내용을 서버에 저장 */
   const persist = async () => {
@@ -90,6 +95,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => {
       })
       if (opened.is_mine) startAutosave()
       else stopAutosave()
+      pushProjectHistory()
       return true
     },
 
@@ -104,6 +110,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => {
         saveState: 'saved',
       })
       startAutosave()
+      pushProjectHistory()
     },
 
     renameCurrent: async name => {
@@ -149,4 +156,11 @@ if (typeof window !== 'undefined') {
   })
   // beforeunload 가 뜨지 않는 모바일 사파리 등을 위한 백업
   window.addEventListener('pagehide', flushPending)
+
+  // 프로젝트 상세에서 브라우저 뒤로가기를 누르면 목록으로 돌아간다.
+  // (열 때 쌓은 히스토리 항목이 popstate 로 빠지는 시점)
+  window.addEventListener('popstate', () => {
+    const st = useWorkspaceStore.getState()
+    if (st.view === 'project') st.backToLanding()
+  })
 }

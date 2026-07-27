@@ -28,7 +28,6 @@ export function TopBar({ onOpenSettings }: { onOpenSettings: () => void }) {
   const current = useWorkspaceStore(s => s.current)
   const readonly = useWorkspaceStore(s => s.readonly)
   const saveState = useWorkspaceStore(s => s.saveState)
-  const backToLanding = useWorkspaceStore(s => s.backToLanding)
   const renameCurrent = useWorkspaceStore(s => s.renameCurrent)
 
   const [editingTitle, setEditingTitle] = useState(false)
@@ -74,7 +73,7 @@ export function TopBar({ onOpenSettings }: { onOpenSettings: () => void }) {
   return (
     <div className="topbar">
       <div className="topbar-left">
-        <button className="btn-back" onClick={backToLanding} title="프로젝트 목록으로">← 목록</button>
+        <button className="btn-back" onClick={() => window.history.back()} title="프로젝트 목록으로">← 목록</button>
         {readonly ? (
           <h1>{current?.name ?? '마일스톤 플래너'}</h1>
         ) : editingTitle ? (
