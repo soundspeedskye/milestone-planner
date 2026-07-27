@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import {
   createProject as apiCreate,
   openProject as apiOpen,
+  renameProject as apiRename,
   saveProjectData,
   type ProjectSummary,
 } from '../lib/projects'
@@ -28,6 +29,8 @@ interface WorkspaceState {
   openProject: (summary: ProjectSummary, password?: string) => Promise<boolean>
   /** data 를 주면 그 내용으로(구버전 가져오기 등), 없으면 기본값으로 생성 */
   createProject: (name: string, password: string, data?: PlannerData) => Promise<void>
+  /** 현재 프로젝트 제목 변경 (owner 만) */
+  renameCurrent: (name: string) => Promise<void>
   backToLanding: () => void
   /** 대기 중인 저장을 즉시 반영 (탭 닫기·목록 이동 전) */
   flush: () => void
@@ -101,6 +104,21 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => {
         saveState: 'saved',
       })
       startAutosave()
+    },
+
+    renameCurrent: async name => {
+      const cur = get().current
+      if (!cur || get().readonly) return
+      const trimmed = name.trim()
+      if (!trimmed || trimmed === cur.name) return
+      try {
+        await apiRename(cur.id, trimmed)
+        set({ current: { ...cur, name: trimmed } })
+        useToastStore.getState().show('제목을 바꿨어요 ✓')
+      } catch (e) {
+        useToastStore.getState().show('제목을 바꾸지 못했어요.')
+        console.error('[rename]', e)
+      }
     },
 
     backToLanding: () => {

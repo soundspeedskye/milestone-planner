@@ -1,3 +1,4 @@
+import { useRef, useState } from 'react'
 import { buildMeetingMarkdown, copyToClipboard } from '../lib/markdown'
 import { buildMilestoneSnapshot, downloadJson } from '../lib/snapshot'
 import { usePlannerStore } from '../store/usePlannerStore'
@@ -7,6 +8,15 @@ import { useWorkspaceStore } from '../store/useWorkspaceStore'
 
 const saveLabel: Record<string, string> = {
   idle: '', saving: '저장 중…', saved: '저장됨 ✓', error: '저장 실패',
+}
+
+function PencilIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M12 20h9" />
+      <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z" />
+    </svg>
+  )
 }
 
 export function TopBar({ onOpenSettings }: { onOpenSettings: () => void }) {
@@ -19,6 +29,23 @@ export function TopBar({ onOpenSettings }: { onOpenSettings: () => void }) {
   const readonly = useWorkspaceStore(s => s.readonly)
   const saveState = useWorkspaceStore(s => s.saveState)
   const backToLanding = useWorkspaceStore(s => s.backToLanding)
+  const renameCurrent = useWorkspaceStore(s => s.renameCurrent)
+
+  const [editingTitle, setEditingTitle] = useState(false)
+  const [draftTitle, setDraftTitle] = useState('')
+  const cancelEdit = useRef(false)
+
+  const startEditTitle = () => {
+    setDraftTitle(current?.name ?? '')
+    cancelEdit.current = false
+    setEditingTitle(true)
+  }
+  // Enter·다른 곳 클릭(blur) 시 반영, Esc 는 취소. blur 로 일원화한다.
+  const commitTitle = () => {
+    setEditingTitle(false)
+    if (cancelEdit.current) { cancelEdit.current = false; return }
+    void renameCurrent(draftTitle)
+  }
 
   // 일정은 버튼을 눌렀을 때만 필요해서 구독하지 않고 그때 꺼내 쓴다
   const snapshot = () => {
@@ -48,7 +75,27 @@ export function TopBar({ onOpenSettings }: { onOpenSettings: () => void }) {
     <div className="topbar">
       <div className="topbar-left">
         <button className="btn-back" onClick={backToLanding} title="프로젝트 목록으로">← 목록</button>
-        <h1>{current?.name ?? '마일스톤 플래너'}</h1>
+        {readonly ? (
+          <h1>{current?.name ?? '마일스톤 플래너'}</h1>
+        ) : editingTitle ? (
+          <input
+            className="title-edit"
+            value={draftTitle}
+            autoFocus
+            onFocus={e => e.target.select()}
+            onChange={e => setDraftTitle(e.target.value)}
+            onBlur={commitTitle}
+            onKeyDown={e => {
+              if (e.key === 'Enter') e.currentTarget.blur()
+              else if (e.key === 'Escape') { cancelEdit.current = true; e.currentTarget.blur() }
+            }}
+          />
+        ) : (
+          <button className="title-edit-btn" onClick={startEditTitle} title="제목 수정">
+            <h1>{current?.name ?? '마일스톤 플래너'}</h1>
+            <span className="title-pen"><PencilIcon /></span>
+          </button>
+        )}
         {readonly
           ? <span className="ro-badge">👁 읽기 전용</span>
           : <span className="save-state">{saveLabel[saveState]}</span>}
