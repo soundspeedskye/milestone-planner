@@ -8,6 +8,14 @@ export interface ChangelogEntry {
 /** 최신이 맨 앞. 업데이트할 때 이 배열 맨 앞에 항목을 추가한다. */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '3.1.1',
+    date: '2026-07-29',
+    changes: [
+      '프로젝트 상세 간트에서 가로로 이동해도 태스크와 직군 컬럼이 고정돼요.',
+      '내 프로젝트에서 태스크 보관함과 일정 영역을 각각 독립적으로 스크롤할 수 있어요.',
+    ],
+  },
+  {
     version: '3.1.0',
     date: '2026-07-27',
     changes: [
