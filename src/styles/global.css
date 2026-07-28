@@ -16,9 +16,11 @@ body {
 .app {
   display: grid;
   grid-template-columns: 280px 1fr;
-  grid-template-rows: auto 1fr;
-  min-height: 100vh;
+  grid-template-rows: auto minmax(0, 1fr);
+  height: 100vh;
+  height: 100dvh;
   gap: 0;
+  overflow: hidden;
 }
 .topbar {
   grid-column: 1/-1;
@@ -97,6 +99,7 @@ body {
   display: flex;
   flex-direction: column;
   gap: 12px;
+  min-height: 0;
   overflow-y: auto;
 }
 .sidebar-title {
@@ -223,10 +226,13 @@ body {
 .main {
   display: flex;
   flex-direction: column;
+  min-width: 0;
+  min-height: 0;
   overflow: hidden;
 }
 .main-inner {
   flex: 1;
+  min-height: 0;
   overflow: auto;
   padding: 16px;
 }
