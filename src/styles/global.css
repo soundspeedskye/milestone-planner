@@ -486,6 +486,9 @@ body {
 
 /* 간트 차트 */
 .gantt-wrap {
+  /* 두 메타 컬럼의 실제 폭과 sticky left 값을 같은 기준으로 유지한다. */
+  --gantt-task-column-width: 120px;
+  --gantt-role-column-width: 52px;
   overflow-x: auto;
   border: 1px solid #e0e0d8;
   border-radius: 8px;
@@ -509,17 +512,47 @@ body {
   white-space: nowrap;
 }
 .g-task-label {
-  min-width: 120px;
+  width: var(--gantt-task-column-width);
+  min-width: var(--gantt-task-column-width);
+  max-width: var(--gantt-task-column-width);
   font-size: 11px;
   color: #1a1a18;
   font-weight: 500;
   padding: 5px 8px;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .g-role-label {
-  min-width: 34px;
+  width: var(--gantt-role-column-width);
+  min-width: var(--gantt-role-column-width);
+  max-width: var(--gantt-role-column-width);
   font-size: 9px;
   text-align: center;
   padding: 3px 4px;
+}
+/*
+ * .gantt-wrap가 실제 가로 스크롤 영역이다. 태스크·직군 셀을 이 안에서
+ * 고정해 날짜/일정 셀이 그 아래 레이어로 흘러가게 한다.
+ */
+.gantt-table .g-task-label,
+.gantt-table .g-role-label {
+  position: sticky;
+  background: #fff;
+  z-index: 2;
+}
+.gantt-table .g-task-label {
+  left: 0;
+}
+.gantt-table .g-role-label {
+  left: var(--gantt-task-column-width);
+  border-right: 2px solid #d6d6ce;
+  box-shadow: 8px 0 10px -10px rgba(0, 0, 0, 0.7);
+}
+/* 헤더는 본문 고정 셀 및 날짜 셀보다 한 단계 위에 둔다. */
+.gantt-table thead .g-task-label,
+.gantt-table thead .g-role-label {
+  background: #f5f5f0;
+  z-index: 3;
 }
 .date-cell {
   min-width: 22px;
