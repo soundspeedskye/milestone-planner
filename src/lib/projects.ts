@@ -9,6 +9,8 @@ export interface ProjectSummary {
   name: string
   owner_name: string
   is_mine: boolean
+  /** owner 또는 슈퍼관리자라서 비밀번호 없이 열 수 있는지 여부 */
+  can_bypass_password: boolean
   has_password: boolean
   updated_at: string
 }

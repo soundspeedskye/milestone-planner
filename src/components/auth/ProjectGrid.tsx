@@ -59,9 +59,9 @@ export function ProjectGrid() {
   }, [])
 
   const handleClick = async (p: ProjectSummary) => {
-    if (p.is_mine) {
+    if (p.can_bypass_password) {
       try {
-        await openProject(p) // owner 는 비번 없이 바로 열림
+        await openProject(p) // owner·슈퍼관리자는 비번 없이 바로 열림
       } catch {
         show('프로젝트를 여는 중 문제가 생겼어요.')
       }
@@ -105,6 +105,8 @@ export function ProjectGrid() {
               <span className="card-name">{p.name}</span>
               {p.is_mine
                 ? <span className="badge-mine">내 프로젝트</span>
+                : p.can_bypass_password
+                  ? <span className="badge-super-admin" title="슈퍼관리자 읽기 전용 열람">관리자 열람</span>
                 : p.has_password && <span className="badge-lock" title="비밀번호 필요">🔒</span>}
             </div>
             <div className="card-meta">

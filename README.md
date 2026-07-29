@@ -16,7 +16,7 @@
 - **공휴일 자동 갱신**: data.go.kr 특일정보 API 기반으로 매달 공휴일(임시공휴일 포함)을 자동 반영
 - **뷰 2종**: 태스크별 간트 차트 / 직군별 타임라인(공백 표시)
 - **로그인·프로젝트**: `@safience.com` 계정으로 로그인, 프로젝트를 여러 개 만들어 서버(Supabase)에 저장
-- **접근 제어**: 목록은 모든 회원에게 보이고, 남의 프로젝트는 프로젝트 비밀번호를 입력해야 **읽기 전용**으로 열림. 편집·삭제는 생성자만
+- **접근 제어**: 목록은 모든 회원에게 보이고, 남의 프로젝트는 프로젝트 비밀번호를 입력해야 **읽기 전용**으로 열림. `super-tester@safience.com` 슈퍼관리자는 모든 프로젝트를 비밀번호 없이 읽기 전용으로 열람 가능. 편집·삭제는 생성자만
 - **저장·공유**: 편집 내용은 서버에 자동 저장(debounce), JSON 내보내기(휴무일 설정 포함), 회의록 Markdown 복사
 
 ## 개발
@@ -34,7 +34,7 @@ npm run preview    # 빌드 결과 미리보기
 
 로그인·프로젝트 저장은 [Supabase](https://supabase.com) 무료 티어를 씁니다.
 
-1. Supabase 프로젝트 생성 후 **Authentication → Providers → Email** 에서 *Confirm email* 을 **OFF**
+1. Supabase 프로젝트 생성 후 **Authentication → Providers → Email** 에서 _Confirm email_ 을 **OFF**
 2. **SQL Editor** 에 [supabase/schema.sql](supabase/schema.sql) 전체를 붙여넣고 실행
    (프로필·프로젝트 테이블, RLS, `@safience.com` 도메인 제한, 열람/생성 RPC가 만들어집니다)
 3. **Project Settings → API** 에서 `URL` 과 `anon public` 키를 복사해 `.env.local` 에 입력
@@ -47,7 +47,7 @@ VITE_SUPABASE_ANON_KEY=eyJhbGci...   # anon public 키 또는 sb_publishable_...
 > 키는 기존 `anon public`(`eyJ...`) 키와 새 형식 `publishable`(`sb_publishable_...`) 키 모두 사용할 수 있어요.
 
 > 접근 모델: 앱 진입은 `@safience.com` 로그인 필수 · 프로젝트 목록은 전 회원 공개(내용 제외) ·
-> 열람은 owner 는 바로/그 외는 프로젝트 비밀번호 · 편집·삭제는 owner 만.
+> 열람은 owner 또는 슈퍼관리자는 바로/그 외는 프로젝트 비밀번호 · 편집·삭제는 owner 만.
 > `data`(내용)는 RLS 로 테이블 직접 조회를 막고 `open_project` RPC(비번 대조)로만 나갑니다.
 
 ## 구조

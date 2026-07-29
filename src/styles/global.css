@@ -1230,6 +1230,15 @@ th.holiday {
   border-radius: 10px;
   white-space: nowrap;
 }
+.badge-super-admin {
+  flex: none;
+  font-size: 10px;
+  color: #1d5c83;
+  background: #e2f1fa;
+  padding: 2px 7px;
+  border-radius: 10px;
+  white-space: nowrap;
+}
 .badge-lock {
   flex: none;
   font-size: 12px;

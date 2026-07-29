@@ -75,6 +75,25 @@ create index if not exists projects_owner_idx on public.projects(owner_id);
 
 alter table public.projects enable row level security;
 
+-- ── 슈퍼관리자 ───────────────────────────────────────────────
+-- 일반 로그인 사용자는 이 테이블을 조회하거나 수정할 수 없다.
+-- 이 테이블을 참조하는 SECURITY DEFINER RPC만 권한을 판정한다.
+create table if not exists public.super_admins (
+  user_id    uuid primary key references auth.users on delete cascade,
+  created_at timestamptz not null default now()
+);
+
+alter table public.super_admins enable row level security;
+revoke all on table public.super_admins from anon, authenticated;
+
+-- 현재 슈퍼관리자. 계정이 아직 없으면 행을 만들지 않으며, 가입 후 이 스키마를 다시
+-- 실행하면 자동 등록된다. 권한은 이메일이 아니라 auth.users UUID에 연결된다.
+insert into public.super_admins (user_id)
+select id
+from auth.users
+where lower(email) = 'super-tester@safience.com'
+on conflict (user_id) do nothing;
+
 -- 테이블 직접 접근은 owner 본인 행만 (select/insert/update/delete 전부).
 -- 남의 프로젝트 목록·열람은 아래 SECURITY DEFINER 함수로만 나간다.
 drop policy if exists projects_owner_all on public.projects;
@@ -84,12 +103,15 @@ create policy projects_owner_all on public.projects
   with check (owner_id = auth.uid());
 
 -- ── RPC: 모든 프로젝트 메타 목록 (내용 data 는 제외) ──────────
+-- 반환 형식에 열을 추가했으므로, 기존 함수가 있는 환경에서는 먼저 재생성한다.
+drop function if exists public.list_projects();
 create or replace function public.list_projects()
 returns table (
   id           uuid,
   name         text,
   owner_name   text,
   is_mine      boolean,
+  can_bypass_password boolean,
   has_password boolean,
   updated_at   timestamptz
 )
@@ -102,6 +124,14 @@ as $$
          p.name,
          coalesce(pr.display_name, pr.email, '알 수 없음') as owner_name,
          p.owner_id = auth.uid()             as is_mine,
+         (
+           p.owner_id = auth.uid()
+           or exists (
+             select 1
+             from public.super_admins sa
+             where sa.user_id = auth.uid()
+           )
+         )                                   as can_bypass_password,
          p.password_hash is not null         as has_password,
          p.updated_at
   from public.projects p
@@ -112,7 +142,7 @@ $$;
 revoke all on function public.list_projects() from public;
 grant execute on function public.list_projects() to authenticated;
 
--- ── RPC: 프로젝트 열람 (owner 는 비번 무시, 그 외는 비번 대조) ─
+-- ── RPC: 프로젝트 열람 (owner·슈퍼관리자는 비번 무시, 그 외는 비번 대조) ─
 create or replace function public.open_project(p_id uuid, p_pw text default null)
 returns table (
   id         uuid,
@@ -135,6 +165,11 @@ as $$
   where p.id = p_id
     and (
       p.owner_id = auth.uid()
+      or exists (
+        select 1
+        from public.super_admins sa
+        where sa.user_id = auth.uid()
+      )
       or (p.password_hash is not null and p.password_hash = crypt(p_pw, p.password_hash))
     );
 $$;
