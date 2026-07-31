@@ -9,6 +9,9 @@ import { Legend } from './components/gantt/Legend'
 import { GanttChart } from './components/gantt/GanttChart'
 import { RoleView } from './components/gantt/RoleView'
 import { SettingsModal } from './components/settings/SettingsModal'
+import { VersionModal } from './components/version/VersionModal'
+import { PreviewBanner } from './components/version/PreviewBanner'
+import { EyeIcon } from './components/icons/AppIcons'
 import { LandingPage } from './components/auth/LandingPage'
 import { useAuthStore } from './store/useAuthStore'
 import { useWorkspaceStore } from './store/useWorkspaceStore'
@@ -16,11 +19,13 @@ import { useWorkspaceStore } from './store/useWorkspaceStore'
 export default function App() {
   const [tab, setTab] = useState<'task' | 'role'>('task')
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [versionsOpen, setVersionsOpen] = useState(false)
 
   const authLoading = useAuthStore(s => s.loading)
   const initAuth = useAuthStore(s => s.init)
   const view = useWorkspaceStore(s => s.view)
   const readonly = useWorkspaceStore(s => s.readonly)
+  const preview = useWorkspaceStore(s => s.preview)
 
   useEffect(() => { initAuth() }, [initAuth])
 
@@ -45,11 +50,12 @@ export default function App() {
   return (
     <>
       <div className={`app${readonly ? ' readonly' : ''}`}>
-        <TopBar onOpenSettings={() => setSettingsOpen(true)} />
+        <TopBar onOpenSettings={() => setSettingsOpen(true)} onOpenVersions={() => setVersionsOpen(true)} />
         {!readonly && <TaskPool />}
         <div className="main">
           <div className="main-inner">
-            {readonly && <div className="readonly-banner">👁 읽기 전용으로 열람 중이에요. 편집은 프로젝트 소유자만 할 수 있어요.</div>}
+            <PreviewBanner />
+            {readonly && !preview && <div className="readonly-banner"><EyeIcon size={22} /> 읽기 전용으로 열람 중이에요. 편집은 프로젝트 소유자만 할 수 있어요.</div>}
             {!readonly && <DropZone />}
             {!readonly && <GanttTaskList />}
             <SummaryBar />
@@ -65,6 +71,7 @@ export default function App() {
       </div>
       <Toast />
       {!readonly && settingsOpen && <SettingsModal onClose={() => setSettingsOpen(false)} />}
+      {versionsOpen && <VersionModal onClose={() => setVersionsOpen(false)} />}
     </>
   )
 }

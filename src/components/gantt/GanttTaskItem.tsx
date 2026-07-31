@@ -1,6 +1,9 @@
-import { memo } from "react";
+import { memo, useState } from "react";
 import { usePlannerStore } from "../../store/usePlannerStore";
 import { useDragStore } from "../../store/useDragStore";
+import { TaskEditModal } from "./TaskEditModal";
+import { WarningIcon, PinIcon, PencilIcon, EjectIcon } from "../icons/AppIcons";
+import { DateField } from "../common/DateField";
 import type { RoleDef, Task } from "../../types";
 
 interface Props {
@@ -31,6 +34,7 @@ export const GanttTaskItem = memo(function GanttTaskItem({
   const reorderGantt = usePlannerStore((s) => s.reorderGantt);
   const setFixedStart = usePlannerStore((s) => s.setFixedStart);
   const setGanttIndex = useDragStore((s) => s.setGanttIndex);
+  const [editing, setEditing] = useState(false);
 
   return (
     <div
@@ -71,7 +75,7 @@ export const GanttTaskItem = memo(function GanttTaskItem({
           role="img"
           aria-label={`경고: ${warnings.join(", ")}`}
         >
-          ⚠️
+          <WarningIcon size={22} />
         </span>
       )}
       <span className="fixed-start">
@@ -82,24 +86,16 @@ export const GanttTaskItem = memo(function GanttTaskItem({
           role="img"
           aria-label="시작일 고정: 지정하면 순차 계산 대신 이 날짜부터 시작해요"
         >
-          📌
+          <PinIcon size={22} />
         </span>
-        <input
-          type="date"
+        <DateField
           className={task.fixedStart ? "pinned" : ""}
-          value={task.fixedStart ?? ""}
-          onChange={(e) => setFixedStart(task.id, e.target.value || undefined)}
+          value={task.fixedStart ?? undefined}
+          onChange={(v) => setFixedStart(task.id, v)}
+          placeholder="시작일 고정"
+          clearable
+          aria-label="시작일 고정"
         />
-        {task.fixedStart && (
-          <button
-            className="btn-unpin tip"
-            data-tooltip="고정 해제"
-            aria-label="시작일 고정 해제"
-            onClick={() => setFixedStart(task.id, undefined)}
-          >
-            ✕
-          </button>
-        )}
       </span>
       <div className="gantt-task-days">
         {roles
@@ -118,13 +114,28 @@ export const GanttTaskItem = memo(function GanttTaskItem({
           ))}
       </div>
       <button
+        className="btn-edit-task tip tip-right"
+        onClick={() => setEditing(true)}
+        data-tooltip="태스크 수정"
+        aria-label="태스크 수정"
+      >
+        <PencilIcon size={24} />
+      </button>
+      <button
         className="btn-eject tip tip-right"
         onClick={() => ejectFromGantt(task.id)}
         data-tooltip="보관함으로 꺼내기"
         aria-label="보관함으로 꺼내기"
       >
-        ↩
+        <EjectIcon size={24} />
       </button>
+      {editing && (
+        <TaskEditModal
+          task={task}
+          roles={roles}
+          onClose={() => setEditing(false)}
+        />
+      )}
     </div>
   );
 });

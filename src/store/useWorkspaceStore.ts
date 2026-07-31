@@ -6,6 +6,7 @@ import {
   saveProjectData,
   type ProjectSummary,
 } from '../lib/projects'
+import { createVersion, getVersion, type VersionSummary } from '../lib/versions'
 import type { PlannerData } from '../types'
 import { defaultPlannerData, plannerSnapshot, usePlannerStore } from './usePlannerStore'
 import { useToastStore } from './useToastStore'
@@ -18,19 +19,38 @@ export interface CurrentProject {
   updatedAt: string
 }
 
+/** 미리보기 중인 버전 정보 (편집 잠금 배너에 쓴다) */
+export interface PreviewInfo {
+  id: string
+  label: string
+  createdAt: string
+}
+
 type SaveState = 'idle' | 'saving' | 'saved' | 'error'
 
 interface WorkspaceState {
   view: 'landing' | 'project'
   current: CurrentProject | null
-  /** 내 프로젝트가 아니면 읽기 전용 */
+  /** 내 프로젝트가 아니거나 버전 미리보기 중이면 읽기 전용 */
   readonly: boolean
   saveState: SaveState
+  /** 버전을 열 때 쓴 비번(메모리 전용). 비번 열람자가 버전 RPC를 호출할 때 넘긴다 */
+  openPassword: string | null
+  /** null 이 아니면 옛 버전을 미리보기 중 */
+  preview: PreviewInfo | null
   openProject: (summary: ProjectSummary, password?: string) => Promise<boolean>
   /** data 를 주면 그 내용으로(구버전 가져오기 등), 없으면 기본값으로 생성 */
   createProject: (name: string, password: string, data?: PlannerData) => Promise<void>
   /** 현재 프로젝트 제목 변경 (owner 만) */
   renameCurrent: (name: string) => Promise<void>
+  /** 현재 상태를 새 버전으로 저장 (owner 만) */
+  saveVersion: (label: string, note: string) => Promise<VersionSummary | null>
+  /** 옛 버전을 읽기 전용으로 화면에 로드 (자동저장 중단, 현재 상태는 백업) */
+  previewVersion: (v: PreviewInfo) => Promise<void>
+  /** 미리보기를 끝내고 백업한 현재 상태로 복귀 */
+  exitPreview: () => void
+  /** 옛 버전을 현재 내용으로 되돌린다 (복원 직전 상태는 자동 버전으로 남긴다) */
+  restoreVersion: (v: PreviewInfo) => Promise<void>
   backToLanding: () => void
   /** 대기 중인 저장을 즉시 반영 (탭 닫기·목록 이동 전) */
   flush: () => void
@@ -38,6 +58,8 @@ interface WorkspaceState {
 
 let saveTimer: ReturnType<typeof setTimeout> | null = null
 let unsubscribe: (() => void) | null = null
+/** 미리보기 진입 전 라이브 내용 백업 (미리보기/복원에서 되돌릴 때 쓴다) */
+let liveBackup: PlannerData | null = null
 
 /** 프로젝트를 열 때 히스토리 항목을 하나 쌓아, 브라우저 뒤로가기로 목록에 돌아올 수 있게 한다 */
 const pushProjectHistory = () => {
@@ -82,6 +104,8 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => {
     current: null,
     readonly: false,
     saveState: 'idle',
+    openPassword: null,
+    preview: null,
 
     openProject: async (summary, password) => {
       const opened = await apiOpen(summary.id, password)
@@ -92,6 +116,8 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => {
         current: { id: opened.id, name: opened.name, isMine: opened.is_mine, updatedAt: opened.updated_at },
         readonly: !opened.is_mine,
         saveState: 'idle',
+        openPassword: password ?? null,
+        preview: null,
       })
       if (opened.is_mine) startAutosave()
       else stopAutosave()
@@ -108,6 +134,8 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => {
         current: { id, name, isMine: true, updatedAt: new Date().toISOString() },
         readonly: false,
         saveState: 'saved',
+        openPassword: password ?? null,
+        preview: null,
       })
       startAutosave()
       pushProjectHistory()
@@ -128,10 +156,77 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => {
       }
     },
 
+    saveVersion: async (label, note) => {
+      const cur = get().current
+      if (!cur || get().readonly) return null
+      try {
+        // 대기 중인 자동저장을 먼저 밀어넣어 라이브와 버전이 어긋나지 않게 한다
+        get().flush()
+        const summary = await createVersion(cur.id, label, note, plannerSnapshot())
+        useToastStore.getState().show(`버전 '${summary.label}'을 저장했어요 ✓`)
+        return summary
+      } catch (e) {
+        useToastStore.getState().show('버전을 저장하지 못했어요.')
+        console.error('[saveVersion]', e)
+        return null
+      }
+    },
+
+    previewVersion: async v => {
+      if (get().preview) return // 이미 미리보기 중이면 무시
+      const data = await getVersion(v.id, get().openPassword ?? undefined)
+      if (!data) {
+        useToastStore.getState().show('버전을 불러오지 못했어요.')
+        return
+      }
+      // 대기 중인 저장을 밀어넣고 자동저장을 멈춘 뒤, 라이브를 백업하고 버전을 로드한다.
+      get().flush()
+      stopAutosave()
+      liveBackup = plannerSnapshot()
+      usePlannerStore.getState().loadProject(data)
+      set({ preview: v, readonly: true })
+    },
+
+    exitPreview: () => {
+      if (!get().preview) return
+      if (liveBackup) usePlannerStore.getState().loadProject(liveBackup)
+      liveBackup = null
+      const mine = get().current?.isMine ?? false
+      set({ preview: null, readonly: !mine })
+      if (mine) startAutosave()
+    },
+
+    restoreVersion: async v => {
+      const cur = get().current
+      if (!cur || !cur.isMine) return
+      const target = await getVersion(v.id, get().openPassword ?? undefined)
+      if (!target) {
+        useToastStore.getState().show('버전을 불러오지 못했어요.')
+        return
+      }
+      // 복원 직전의 라이브 상태를 자동 버전으로 남겨 되돌릴 수 있게 한다.
+      const liveNow = get().preview ? liveBackup : plannerSnapshot()
+      if (liveNow) {
+        try {
+          await createVersion(cur.id, '', `${v.label} 복원 직전 자동 저장`, liveNow)
+        } catch (e) {
+          console.error('[restoreVersion:autobackup]', e)
+        }
+      }
+      liveBackup = null
+      // 구독을 먼저 켠 뒤 로드해야 그 변경이 자동저장으로 잡힌다. 그 후 즉시 밀어넣는다.
+      set({ preview: null, readonly: false })
+      startAutosave()
+      usePlannerStore.getState().loadProject(target)
+      get().flush()
+      useToastStore.getState().show(`'${v.label}' 버전으로 복원했어요 ✓`)
+    },
+
     backToLanding: () => {
       get().flush()
       stopAutosave()
-      set({ view: 'landing', current: null, readonly: false, saveState: 'idle' })
+      liveBackup = null
+      set({ view: 'landing', current: null, readonly: false, saveState: 'idle', openPassword: null, preview: null })
     },
 
     flush: () => {

@@ -1,10 +1,21 @@
 import { useState } from 'react'
+import { fmt } from '../../lib/workdays'
 import { usePlannerStore } from '../../store/usePlannerStore'
 import { useDragStore } from '../../store/useDragStore'
+import { useSchedules } from '../../store/useScheduleStore'
 
 export function DropZone() {
   const [over, setOver] = useState(false)
   const moveToGantt = usePlannerStore(s => s.moveToGantt)
+  const schedules = useSchedules()
+
+  const nextStartDate = () => {
+    const lastSchedule = [...schedules]
+      .reverse()
+      .find(schedule => Object.keys(schedule.roles).length > 0)
+    const planningEnd = lastSchedule?.roles['기획']?.end
+    return planningEnd ? fmt(planningEnd) : undefined
+  }
 
   return (
     <div
@@ -19,7 +30,7 @@ export function DropZone() {
         setOver(false)
         const { poolId, setPoolId } = useDragStore.getState()
         if (e.dataTransfer.getData('source') === 'pool' && poolId !== null) {
-          moveToGantt(poolId)
+          moveToGantt(poolId, nextStartDate())
           setPoolId(null)
         }
       }}

@@ -5,6 +5,7 @@ import type { PlannerData } from '../../types'
 import { useWorkspaceStore } from '../../store/useWorkspaceStore'
 import { useToastStore } from '../../store/useToastStore'
 import { LATEST_UPDATE } from '../../constants/changelog'
+import { LockIcon } from '../icons/AppIcons'
 import { getLastSeenUpdate, markUpdatesSeen } from '../../lib/updateNotice'
 import { UpdateModal } from '../UpdateModal'
 import { NewProjectModal } from './NewProjectModal'
@@ -107,7 +108,7 @@ export function ProjectGrid() {
                 ? <span className="badge-mine">내 프로젝트</span>
                 : p.can_bypass_password
                   ? <span className="badge-super-admin" title="슈퍼관리자 읽기 전용 열람">관리자 열람</span>
-                : p.has_password && <span className="badge-lock" title="비밀번호 필요">🔒</span>}
+                : p.has_password && <span className="badge-lock" title="비밀번호 필요"><LockIcon size={20} title="비밀번호 필요" /></span>}
             </div>
             <div className="card-meta">
               <span>{p.owner_name}</span>

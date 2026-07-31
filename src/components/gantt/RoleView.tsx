@@ -1,6 +1,7 @@
 import { countWD, fmt } from '../../lib/workdays'
 import { usePlannerStore } from '../../store/usePlannerStore'
 import { useIsWDByRole, useIsWorkday, useScheduleRange, useSchedules } from '../../store/useScheduleStore'
+import { CalendarIcon } from '../icons/AppIcons'
 
 const PX = 30
 
@@ -82,7 +83,7 @@ export function RoleView() {
           )
         })}
       </div>
-      <div className="role-range">📅 {fmt(range.min)} ~ {fmt(range.max)}</div>
+      <div className="role-range"><CalendarIcon size={20} /> {fmt(range.min)} ~ {fmt(range.max)}</div>
     </div>
   )
 }

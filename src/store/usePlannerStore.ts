@@ -18,7 +18,7 @@ export interface PlannerState {
   removePoolTask: (id: number) => void
   updateTaskName: (id: number, name: string) => void
   updateTaskDays: (id: number, roleId: string, days: number) => void
-  moveToGantt: (id: number) => void
+  moveToGantt: (id: number, fixedStart?: string) => void
   ejectFromGantt: (id: number) => void
   reorderGantt: (from: number, to: number) => void
   setFixedStart: (id: number, date: string | undefined) => void
@@ -101,10 +101,13 @@ export const usePlannerStore = create<PlannerState>()(
         ganttTasks: updateTask(s.ganttTasks, id, t => ({ ...t, days: { ...t.days, [roleId]: days } })),
       })),
 
-      moveToGantt: id => set(s => {
+      moveToGantt: (id, fixedStart) => set(s => {
         const task = s.poolTasks.find(t => t.id === id)
         if (!task) return s
-        return { poolTasks: s.poolTasks.filter(t => t.id !== id), ganttTasks: [...s.ganttTasks, task] }
+        return {
+          poolTasks: s.poolTasks.filter(t => t.id !== id),
+          ganttTasks: [...s.ganttTasks, { ...task, ...(fixedStart ? { fixedStart } : {}) }],
+        }
       }),
       ejectFromGantt: id => set(s => {
         const task = s.ganttTasks.find(t => t.id === id)

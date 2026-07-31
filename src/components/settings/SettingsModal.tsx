@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { RoleSettings } from './RoleSettings'
 import { HolidaySettings } from './HolidaySettings'
+import { GearIcon } from '../icons/AppIcons'
 
 export function SettingsModal({ onClose }: { onClose: () => void }) {
   const [tab, setTab] = useState<'roles' | 'holidays'>('roles')
@@ -9,7 +10,7 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
     <div className="modal-overlay" onClick={e => { if (e.target === e.currentTarget) onClose() }}>
       <div className="modal">
         <div className="modal-header">
-          <h2>⚙️ 설정</h2>
+          <h2><GearIcon size={28} /> 설정</h2>
           <button className="btn-close" onClick={onClose}>✕</button>
         </div>
         <div className="modal-tabs tabs" style={{ marginBottom: 0 }}>

@@ -5,6 +5,8 @@ import { usePlannerStore } from '../store/usePlannerStore'
 import { useScheduleStore } from '../store/useScheduleStore'
 import { useToastStore } from '../store/useToastStore'
 import { useWorkspaceStore } from '../store/useWorkspaceStore'
+import { ClockIcon, GearIcon, DiskIcon, EyeIcon } from './icons/AppIcons'
+import { DateField } from './common/DateField'
 
 const saveLabel: Record<string, string> = {
   idle: '', saving: '저장 중…', saved: '저장됨 ✓', error: '저장 실패',
@@ -19,7 +21,7 @@ function PencilIcon() {
   )
 }
 
-export function TopBar({ onOpenSettings }: { onOpenSettings: () => void }) {
+export function TopBar({ onOpenSettings, onOpenVersions }: { onOpenSettings: () => void; onOpenVersions: () => void }) {
   const startDate = usePlannerStore(s => s.startDate)
   const setStartDate = usePlannerStore(s => s.setStartDate)
   const resetAll = usePlannerStore(s => s.resetAll)
@@ -28,6 +30,7 @@ export function TopBar({ onOpenSettings }: { onOpenSettings: () => void }) {
   const current = useWorkspaceStore(s => s.current)
   const readonly = useWorkspaceStore(s => s.readonly)
   const saveState = useWorkspaceStore(s => s.saveState)
+  const preview = useWorkspaceStore(s => s.preview)
   const renameCurrent = useWorkspaceStore(s => s.renameCurrent)
 
   const [editingTitle, setEditingTitle] = useState(false)
@@ -96,22 +99,23 @@ export function TopBar({ onOpenSettings }: { onOpenSettings: () => void }) {
           </button>
         )}
         {readonly
-          ? <span className="ro-badge">👁 읽기 전용</span>
+          ? <span className="ro-badge"><EyeIcon size={22} /> 읽기 전용</span>
           : <span className="save-state">{saveLabel[saveState]}</span>}
       </div>
       <div className="topbar-right">
         <label htmlFor="startDate">프로젝트 시작일</label>
-        <input
-          type="date"
+        <DateField
           id="startDate"
           value={startDate}
-          onChange={e => setStartDate(e.target.value)}
+          onChange={v => v && setStartDate(v)}
           disabled={readonly}
+          aria-label="프로젝트 시작일"
         />
-        {!readonly && <button className="btn-reset" onClick={onOpenSettings}>⚙️ 설정</button>}
+        {!preview && <button className="btn-reset" onClick={onOpenVersions}><ClockIcon size={24} /> 버전</button>}
+        {!readonly && <button className="btn-reset" onClick={onOpenSettings}><GearIcon size={24} /> 설정</button>}
         {!readonly && <button className="btn-reset" onClick={handleReset}>초기화</button>}
         <button className="btn-reset" onClick={handleCopyMarkdown}>회의록 Markdown 복사</button>
-        <button className="btn-save" onClick={handleExport}>💾 저장(JSON)</button>
+        <button className="btn-save" onClick={handleExport}><DiskIcon size={24} /> 저장(JSON)</button>
       </div>
     </div>
   )
