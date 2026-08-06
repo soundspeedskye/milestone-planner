@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { DEFAULT_ROLES, ROLE_PALETTES } from '../constants/roles'
+import { usePlannerStore } from '../store/usePlannerStore'
+import { useScheduleStore } from '../store/useScheduleStore'
 import type { RoleSchedule, Task } from '../types'
 import { calcSchedules } from './schedule'
 import { TEST_HOLIDAYS } from './testHolidays'
@@ -154,23 +156,6 @@ describe('calcSchedules — 신규 기능', () => {
     expect(b.warnings.length).toBeGreaterThan(0)
   })
 
-  it('직군별 휴무일은 그 직군의 소요일 계산에서만 빠진다', () => {
-    // 2026-07-22(수)를 기획만 쉰다고 두면 기획은 하루 밀리고, BE는 그대로다
-    const 기획WD = makeIsWorkday(
-      buildHolidaySet({ custom: ['2026-07-22'], disabled: [] }, TEST_HOLIDAYS),
-    )
-    const tasks: Task[] = [{ id: 1, name: 'A', days: { 기획: 3, BE: 3 } }]
-    const [base] = calcSchedules(tasks, DEFAULT_ROLES, parseDate('2026-07-20'), isWD)
-    const [s] = calcSchedules(tasks, DEFAULT_ROLES, parseDate('2026-07-20'), isWD, { 기획: 기획WD })
-
-    // 기획 3일: 기본은 20~22, 22를 쉬면 하루 밀려 23 종료
-    expect(fmt(base.roles['기획'].end)).toBe('2026-07-22')
-    expect(fmt(s.roles['기획'].end)).toBe('2026-07-23')
-    // BE는 기획 종료를 기다려 시작이 밀리지만, 자기 소요일(3일)은 그대로 센다 (24,27,28)
-    expect(fmt(s.roles['BE'].start)).toBe('2026-07-24')
-    expect(fmt(s.roles['BE'].end)).toBe('2026-07-28')
-  })
-
   it('fixedStart여도 태스크 내부 직군 의존은 지킨다', () => {
     const tasks: Task[] = [
       { id: 1, name: 'A', days: { 기획: 3, PD: 2 }, fixedStart: '2026-07-20' },
@@ -178,5 +163,31 @@ describe('calcSchedules — 신규 기능', () => {
     const [s] = calcSchedules(tasks, DEFAULT_ROLES, parseDate('2026-07-20'), isWD)
     // PD는 고정일이 아니라 기획 종료(7/23) 이후 시작
     expect(fmt(s.roles['PD'].start)).toBe('2026-07-23')
+  })
+})
+
+describe('직군 휴무(연차)는 일정 계산에 영향을 주지 않는다', () => {
+  it('연차를 추가해도 종료일은 그대로이고 roleOffSet에만 반영된다', () => {
+    usePlannerStore.getState().loadProject({
+      startDate: '2026-07-20',
+      poolTasks: [],
+      ganttTasks: [{ id: 1, name: 'A', days: { 기획: 3, BE: 3 } }],
+      roles: DEFAULT_ROLES,
+      holidays: { custom: [], disabled: [], byRole: {} },
+    })
+
+    const before = useScheduleStore.getState().schedules[0].roles
+    const 기End = fmt(before['기획'].end)
+    const beEnd = fmt(before['BE'].end)
+
+    // 기획 막대(20~22) 한가운데 07-22에 연차를 넣는다
+    usePlannerStore.getState().addRoleHoliday('기획', '2026-07-22')
+    const after = useScheduleStore.getState()
+
+    // 종료일은 밀리지 않는다 (연차는 표기 전용)
+    expect(fmt(after.schedules[0].roles['기획'].end)).toBe(기End)
+    expect(fmt(after.schedules[0].roles['BE'].end)).toBe(beEnd)
+    // 표기용 roleOffSet에만 들어간다
+    expect(after.roleOffSet['기획']?.has('2026-07-22')).toBe(true)
   })
 })

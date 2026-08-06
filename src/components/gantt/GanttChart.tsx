@@ -165,24 +165,34 @@ export function GanttChart() {
                         </span>
                       </td>
                       {colMeta.map((c, ci) => {
-                        // 기간 안이어도 쉬는 날엔 막대 대신 빗금을 깔아 쉬는 날임을 드러낸다.
-                        // 이 직군만 쉬는 날은 같은 줄에서만 쉬는 날로 친다
-                        const off =
-                          c.off || (roleOff?.has(c.df) ? "role-off" : "");
+                        // 막대 기간 안 주말·공휴일은 예전처럼 빗금(bar-off)을 깐다.
+                        // 연차(직군 휴무)는 일정에 영향이 없어 그 날도 막대를 채우고,
+                        // 위에 세로 "연차" 라벨만 얹는다.
                         const inRange = c.df >= sf && c.df <= ef;
-                        const filled = inRange && !off;
-                        const hatched = inRange && !!off;
+                        const hatched = inRange && !!c.off;
+                        const filled = inRange && !c.off;
+                        // 연차는 막대 기간 안에서만 표기한다 (막대 밖은 표기 안 함)
+                        const isRoleOff = inRange && !c.off && !!roleOff?.has(c.df);
                         return (
                           <td
                             key={ci}
-                            className={`date-cell ${off}${hatched ? " bar-off" : ""}`}
+                            className={`date-cell ${c.off}${hatched ? " bar-off" : ""}`}
                             style={{
                               ...(filled ? { background: r.palette.bar } : {}),
                               ...(c.isToday
                                 ? { borderLeft: "2px solid #E24B4A" }
                                 : {}),
                             }}
-                          />
+                          >
+                            {isRoleOff && (
+                              <span
+                                className="role-off-label"
+                                style={{ color: r.palette.barText }}
+                              >
+                                연차
+                              </span>
+                            )}
+                          </td>
                         );
                       })}
                     </tr>

@@ -8,6 +8,14 @@ export interface ChangelogEntry {
 /** 최신이 맨 앞. 업데이트할 때 이 배열 맨 앞에 항목을 추가한다. */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "3.3.0",
+    date: "2026-08-06",
+    changes: [
+      "간트에서 직군 휴무 표기식이 변경됐습니다.",
+      "직군 휴무(연차)는 이제 일정에 영향을 주지 않습니다.",
+    ],
+  },
+  {
     version: "3.2.0",
     date: "2026-07-31",
     changes: [

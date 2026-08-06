@@ -1,6 +1,6 @@
 import { countWD, fmt } from '../../lib/workdays'
 import { usePlannerStore } from '../../store/usePlannerStore'
-import { useIsWDByRole, useIsWorkday, useScheduleRange, useSchedules } from '../../store/useScheduleStore'
+import { useIsWorkday, useScheduleRange, useSchedules } from '../../store/useScheduleStore'
 import { CalendarIcon } from '../icons/AppIcons'
 
 const PX = 30
@@ -26,7 +26,6 @@ export function RoleView() {
   const roles = usePlannerStore(s => s.roles)
   const schedules = useSchedules()
   const isWD = useIsWorkday()
-  const isWDByRole = useIsWDByRole()
   const range = useScheduleRange()
 
   const active = schedules.filter(s => Object.keys(s.roles).length > 0)
@@ -43,8 +42,8 @@ export function RoleView() {
             .map(s => ({ id: s.id, ...s.roles[role.id] }))
           if (blocks.length === 0) return null
 
-          // 공백도 그 직군이 실제로 일할 수 있는 날 기준으로 센다
-          const roleWD = isWDByRole[role.id] ?? isWD
+          // 공백은 전사 영업일 기준으로 센다 (연차는 일정·공백에 영향 없음)
+          const roleWD = isWD
           let prevEnd: Date | null = null
           const items: React.ReactNode[] = []
           blocks.forEach((b, i) => {

@@ -12,14 +12,15 @@ import { addWD, fmt, parseDate, type IsWorkday } from "./workdays";
  * - fixedStart가 있으면 roleEnd 대기를 무시하고 그 날짜부터 시작하되,
  *   앞 일정과 겹치면 warnings에 기록한다. (태스크 내부 의존은 계속 지킨다)
  *
- * isWDByRole을 주면 그 직군의 소요일을 셀 때 전사 휴무일 대신 쓴다(직군별 휴무일).
+ * 직군별 휴무일(연차)은 일정 계산에 영향을 주지 않는다. 전사 휴무일(isWD)만으로
+ * 모든 직군의 소요일을 세므로, 연차를 추가·삭제해도 시작·종료일이 바뀌지 않는다.
+ * 연차는 표기 전용이다(GanttChart의 세로 "연차" 라벨).
  */
 export function calcSchedules(
   tasks: Task[],
   roles: RoleDef[],
   projectStart: Date,
   isWD: IsWorkday,
-  isWDByRole: Record<string, IsWorkday> = {},
 ): TaskSchedule[] {
   // roleEnd는 "그 직군이 마지막으로 일한 날(inclusive)"을 뜻한다.
   // 프로젝트 시작 전날로 초기화해야 첫 작업일이 projectStart 당일이 된다.
@@ -53,7 +54,7 @@ export function calcSchedules(
       const days = task.days[roleId] || 0;
       let result: Date;
       if (days > 0) {
-        const wd = isWDByRole[roleId] ?? isWD;
+        const wd = isWD;
         const firstWDon = (d: Date) => (wd(d) ? new Date(d) : addWD(d, 1, wd));
         const depEnds = role.dependsOn.map(effectiveEnd);
         const depMax = depEnds.length

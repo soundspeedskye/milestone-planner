@@ -42,7 +42,7 @@ export interface HolidayConfig {
   custom: string[]
   /** 기본 공휴일 중 사용자가 해제한 날짜 */
   disabled: string[]
-  /** 직군 id → 그 직군만 쉬는 날 (YYYY-MM-DD). 해당 직군의 일정 계산에서만 제외된다 */
+  /** 직군 id → 그 직군만 쉬는 날(연차, YYYY-MM-DD). 일정 계산에는 영향이 없고 차트에 세로 "연차"로만 표기된다 */
   byRole: Record<string, string[]>
 }
 

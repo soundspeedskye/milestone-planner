@@ -30,16 +30,6 @@ export function makeIsWorkday(holidays: Set<string>): IsWorkday {
   return d => !isWeekend(d) && !holidays.has(fmt(d))
 }
 
-/** 전사 휴무일에 그 직군만 쉬는 날을 더한 판별 함수 */
-export function makeRoleIsWorkday(holidays: Set<string>, roleDates: readonly string[]): IsWorkday {
-  if (!roleDates.length) return makeIsWorkday(holidays)
-  const off = new Set(roleDates)
-  return d => {
-    const s = fmt(d)
-    return !isWeekend(d) && !holidays.has(s) && !off.has(s)
-  }
-}
-
 /** from 다음 날부터 세어 days번째 영업일을 반환 (기존 addWD와 동일) */
 export function addWD(from: Date, days: number, isWD: IsWorkday): Date {
   if (!days || days <= 0) return new Date(from)
