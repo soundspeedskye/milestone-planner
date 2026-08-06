@@ -536,8 +536,10 @@ body {
   color: #1a1a18;
   font-weight: 500;
   padding: 5px 8px;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  text-align: center;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  line-height: 1.35;
 }
 .g-role-label {
   width: var(--gantt-role-column-width);
@@ -559,6 +561,8 @@ body {
 }
 .gantt-table .g-task-label {
   left: 0;
+  /* .gantt-table td 의 nowrap(우선순위 0,1,1)을 이 선택자(0,2,0)로 덮어 줄바꿈 허용 */
+  white-space: normal;
 }
 .gantt-table .g-role-label {
   left: var(--gantt-task-column-width);
