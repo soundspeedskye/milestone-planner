@@ -1285,6 +1285,8 @@ th.holiday {
   font-weight: 500;
   color: #1a1a18;
   line-height: 1.4;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 .badge-mine {
   flex: none;
