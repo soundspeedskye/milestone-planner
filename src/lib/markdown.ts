@@ -7,7 +7,11 @@ export function buildMeetingMarkdown(data: MilestoneSnapshot, roles: RoleDef[]):
     roles.forEach(role => {
       const item = task.roles[role.id]
       if (!item) return
-      rows.push(`| ${role.name} | [${(task.name || '(무제)').replaceAll('|', '\\|')}] | ${item.start} ~ ${item.end} | ${item.days}일 |`)
+      // 고정일 태스크에 끊긴 일정은 토막을 그대로 나열한다
+      const period = item.segments?.length
+        ? item.segments.map(g => `${g.start} ~ ${g.end}`).join(', ')
+        : `${item.start} ~ ${item.end}`
+      rows.push(`| ${role.name} | [${(task.name || '(무제)').replaceAll('|', '\\|')}] | ${period} | ${item.days}일 |`)
     })
   })
   // 일정에서 빠진 날은 회의에서 자주 나오는 질문이라 표 위에 함께 적는다

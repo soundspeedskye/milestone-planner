@@ -442,10 +442,6 @@ body {
 .btn-unpin:hover {
   color: #e24b4a;
 }
-.warn-icon {
-  font-size: 12px;
-  cursor: pointer;
-}
 
 /* 요약 */
 .summary-bar {
@@ -615,6 +611,25 @@ body {
   line-height: 1;
 }
 /* 막대 기간 중 주말·공휴일: 색 막대 대신 빗금 (색상은 공백 표기와 동일) */
+/* 고정일 태스크에 끊긴 막대의 사이 구간 — 같은 태스크가 이어짐을 점선 두 줄로 표시 */
+.gantt-table td.bar-link {
+  position: relative;
+}
+.gantt-table td.bar-link::before,
+.gantt-table td.bar-link::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  border-top: 2px dotted currentColor;
+  opacity: 0.65;
+}
+.gantt-table td.bar-link::before {
+  top: 38%;
+}
+.gantt-table td.bar-link::after {
+  top: 62%;
+}
 .gantt-table td.bar-off {
   background-image: repeating-linear-gradient(
     135deg,

@@ -2,7 +2,7 @@ import { memo, useState } from "react";
 import { usePlannerStore } from "../../store/usePlannerStore";
 import { useDragStore } from "../../store/useDragStore";
 import { TaskEditModal } from "./TaskEditModal";
-import { WarningIcon, PinIcon, PencilIcon, EjectIcon } from "../icons/AppIcons";
+import { PinIcon, PencilIcon, EjectIcon } from "../icons/AppIcons";
 import { DateField } from "../common/DateField";
 import type { RoleDef, Task } from "../../types";
 
@@ -10,7 +10,6 @@ interface Props {
   task: Task;
   index: number;
   roles: RoleDef[];
-  warnings: string[];
   dragging: boolean;
   over: boolean;
   onOver: (i: number | null) => void;
@@ -25,7 +24,6 @@ export const GanttTaskItem = memo(function GanttTaskItem({
   task,
   index,
   roles,
-  warnings,
   dragging,
   over,
   onOver,
@@ -67,17 +65,6 @@ export const GanttTaskItem = memo(function GanttTaskItem({
     >
       <span className="drag-handle-gantt">⠿</span>
       <span className="gantt-task-label">{task.name || "(무제)"}</span>
-      {warnings.length > 0 && (
-        <span
-          className="warn-icon tip"
-          data-tooltip={warnings.join("\n")}
-          tabIndex={0}
-          role="img"
-          aria-label={`경고: ${warnings.join(", ")}`}
-        >
-          <WarningIcon size={22} />
-        </span>
-      )}
       <span className="fixed-start">
         <span
           className="tip pin-icon"

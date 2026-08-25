@@ -10,11 +10,13 @@ export function DropZone() {
   const schedules = useSchedules()
 
   const nextStartDate = () => {
-    const lastSchedule = [...schedules]
-      .reverse()
-      .find(schedule => Object.keys(schedule.roles).length > 0)
-    const planningEnd = lastSchedule?.roles['기획']?.end
-    return planningEnd ? fmt(planningEnd) : undefined
+    // 고정일 태스크 때문에 간트 목록 순서가 시간 순서와 어긋날 수 있어
+    // 목록의 마지막이 아니라 가장 늦은 기획 종료일을 기준으로 잡는다.
+    const ends = schedules
+      .map(schedule => schedule.roles['기획']?.end)
+      .filter((end): end is Date => !!end)
+    if (ends.length === 0) return undefined
+    return fmt(new Date(Math.max(...ends.map(end => end.getTime()))))
   }
 
   return (

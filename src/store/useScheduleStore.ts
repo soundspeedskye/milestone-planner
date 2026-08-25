@@ -40,7 +40,7 @@ function derive(s: PlannerState): ScheduleState {
  * 일정 계산에 실제로 영향을 주는 입력만 뽑은 시그니처.
  * 태스크 이름은 계산과 무관하므로 제외한다 → 이름만 바뀐 렌더에서는
  * derive 재실행·스토어 갱신을 건너뛰어 그리드 전체 리렌더를 막는다.
- * (직군 이름은 warnings 문구에 쓰이므로 roles 는 통째로 포함)
+ * (직군 구성·의존 관계가 계산에 쓰이므로 roles 는 통째로 포함)
  */
 function scheduleSignature(s: PlannerState): string {
   return JSON.stringify({

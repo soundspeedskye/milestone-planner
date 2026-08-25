@@ -24,17 +24,27 @@ export interface Task {
   fixedStart?: string
 }
 
-export interface RoleSchedule {
+/** 막대 한 토막. 앵커(고정일 태스크)가 중간을 점유하면 한 직군 일정이 여러 토막이 된다 */
+export interface RoleSegment {
   start: Date
   end: Date
+  /** 이 토막에서 실제로 일하는 영업일 수 (화면에서 다시 세지 않도록 계산 때 담아 둔다) */
   days: number
+}
+
+export interface RoleSchedule {
+  /** 첫 토막 시작일 */
+  start: Date
+  /** 마지막 토막 종료일 */
+  end: Date
+  days: number
+  /** 실제로 일하는 구간들 (연속이면 1개). start~end 안에서 남이 점유한 날만큼 끊겨 있다 */
+  segments: RoleSegment[]
 }
 
 export interface TaskSchedule {
   id: number
   roles: Record<string, RoleSchedule>
-  /** 시작일 고정으로 같은 직군의 앞 일정과 겹칠 때 경고 메시지 */
-  warnings: string[]
 }
 
 export interface HolidayConfig {

@@ -15,7 +15,13 @@ export interface MilestoneSnapshot {
     id: number
     name: string
     fixedStart?: string
-    roles: Record<string, { days: number; start: string; end: string }>
+    roles: Record<string, {
+      days: number
+      start: string
+      end: string
+      /** 고정일 태스크에 밀려 일정이 끊긴 경우에만 담는다 (연속이면 생략) */
+      segments?: { start: string; end: string }[]
+    }>
   }[]
   poolTasks: { id: number; name: string; days: Record<string, number> }[]
   /**
@@ -46,7 +52,7 @@ export function buildMilestoneSnapshot(args: {
   const fixedById = new Map(ganttTasks.map(t => [t.id, t.fixedStart]))
   const nameById = new Map(ganttTasks.map(t => [t.id, t.name]))
   return {
-    version: 3,
+    version: 4,
     source: '마일스톤 플래너',
     savedAt: new Date().toISOString(),
     startDate,
@@ -59,7 +65,14 @@ export function buildMilestoneSnapshot(args: {
       roles: Object.fromEntries(
         Object.entries(s.roles).map(([roleId, info]) => [
           roleId,
-          { days: info.days, start: fmt(info.start), end: fmt(info.end) },
+          {
+            days: info.days,
+            start: fmt(info.start),
+            end: fmt(info.end),
+            ...(info.segments.length > 1
+              ? { segments: info.segments.map(g => ({ start: fmt(g.start), end: fmt(g.end) })) }
+              : {}),
+          },
         ]),
       ),
     })),

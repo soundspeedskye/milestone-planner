@@ -130,17 +130,6 @@ export function CalendarIcon(p: IconProps) {
   )
 }
 
-/** 경고 · 살구색 삼각형 */
-export function WarningIcon(p: IconProps) {
-  return (
-    <Svg {...p}>
-      <path d="M22 7 q2.4 0 3.6 2.2 L37 30 q1.2 2.4 -0.4 4 Q35.2 35 33 35 H11 q-2.2 0 -3.6 -1 Q6 32.4 7 30 L18.4 9.2 Q19.6 7 22 7 Z" fill="#EF9F27" />
-      <path d="M22 9.5 L33 30 H11 Z" fill="#FAC775" />
-      <rect x="20.3" y="17" width="3.4" height="9" rx="1.7" fill="#854F0B" /><circle cx="22" cy="30" r="1.9" fill="#854F0B" />
-    </Svg>
-  )
-}
-
 /** 시작일 고정 · 빨강 핀 */
 export function PinIcon(p: IconProps) {
   return (
