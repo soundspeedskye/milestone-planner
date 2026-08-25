@@ -16,6 +16,8 @@ export interface CurrentProject {
   id: string
   name: string
   isMine: boolean
+  /** owner 이거나 슈퍼관리자라서 편집할 수 있는지 (슈퍼관리자는 isMine=false, canEdit=true) */
+  canEdit: boolean
   updatedAt: string
 }
 
@@ -31,7 +33,7 @@ type SaveState = 'idle' | 'saving' | 'saved' | 'error'
 interface WorkspaceState {
   view: 'landing' | 'project'
   current: CurrentProject | null
-  /** 내 프로젝트가 아니거나 버전 미리보기 중이면 읽기 전용 */
+  /** 편집 권한이 없거나(비번 열람자) 버전 미리보기 중이면 읽기 전용 */
   readonly: boolean
   saveState: SaveState
   /** 버전을 열 때 쓴 비번(메모리 전용). 비번 열람자가 버전 RPC를 호출할 때 넘긴다 */
@@ -41,9 +43,9 @@ interface WorkspaceState {
   openProject: (summary: ProjectSummary, password?: string) => Promise<boolean>
   /** data 를 주면 그 내용으로(구버전 가져오기 등), 없으면 기본값으로 생성 */
   createProject: (name: string, password: string, data?: PlannerData) => Promise<void>
-  /** 현재 프로젝트 제목 변경 (owner 만) */
+  /** 현재 프로젝트 제목 변경 (편집 권한자만) */
   renameCurrent: (name: string) => Promise<void>
-  /** 현재 상태를 새 버전으로 저장 (owner 만) */
+  /** 현재 상태를 새 버전으로 저장 (편집 권한자만) */
   saveVersion: (label: string, note: string) => Promise<VersionSummary | null>
   /** 옛 버전을 읽기 전용으로 화면에 로드 (자동저장 중단, 현재 상태는 백업) */
   previewVersion: (v: PreviewInfo) => Promise<void>
@@ -113,13 +115,19 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => {
       usePlannerStore.getState().loadProject(opened.data)
       set({
         view: 'project',
-        current: { id: opened.id, name: opened.name, isMine: opened.is_mine, updatedAt: opened.updated_at },
-        readonly: !opened.is_mine,
+        current: {
+          id: opened.id,
+          name: opened.name,
+          isMine: opened.is_mine,
+          canEdit: opened.can_edit,
+          updatedAt: opened.updated_at,
+        },
+        readonly: !opened.can_edit,
         saveState: 'idle',
         openPassword: password ?? null,
         preview: null,
       })
-      if (opened.is_mine) startAutosave()
+      if (opened.can_edit) startAutosave()
       else stopAutosave()
       pushProjectHistory()
       return true
@@ -131,7 +139,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => {
       usePlannerStore.getState().loadProject(payload)
       set({
         view: 'project',
-        current: { id, name, isMine: true, updatedAt: new Date().toISOString() },
+        current: { id, name, isMine: true, canEdit: true, updatedAt: new Date().toISOString() },
         readonly: false,
         saveState: 'saved',
         openPassword: password ?? null,
@@ -191,14 +199,14 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => {
       if (!get().preview) return
       if (liveBackup) usePlannerStore.getState().loadProject(liveBackup)
       liveBackup = null
-      const mine = get().current?.isMine ?? false
-      set({ preview: null, readonly: !mine })
-      if (mine) startAutosave()
+      const editable = get().current?.canEdit ?? false
+      set({ preview: null, readonly: !editable })
+      if (editable) startAutosave()
     },
 
     restoreVersion: async v => {
       const cur = get().current
-      if (!cur || !cur.isMine) return
+      if (!cur || !cur.canEdit) return
       const target = await getVersion(v.id, get().openPassword ?? undefined)
       if (!target) {
         useToastStore.getState().show('버전을 불러오지 못했어요.')

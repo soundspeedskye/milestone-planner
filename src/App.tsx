@@ -11,7 +11,7 @@ import { RoleView } from './components/gantt/RoleView'
 import { SettingsModal } from './components/settings/SettingsModal'
 import { VersionModal } from './components/version/VersionModal'
 import { PreviewBanner } from './components/version/PreviewBanner'
-import { EyeIcon } from './components/icons/AppIcons'
+import { EyeIcon, PencilIcon } from './components/icons/AppIcons'
 import { LandingPage } from './components/auth/LandingPage'
 import { useAuthStore } from './store/useAuthStore'
 import { useWorkspaceStore } from './store/useWorkspaceStore'
@@ -26,6 +26,8 @@ export default function App() {
   const view = useWorkspaceStore(s => s.view)
   const readonly = useWorkspaceStore(s => s.readonly)
   const preview = useWorkspaceStore(s => s.preview)
+  // 내 프로젝트가 아닌데 편집이 열려 있으면 슈퍼관리자 권한으로 보고 있는 것
+  const adminEditing = useWorkspaceStore(s => !!s.current && !s.current.isMine && s.current.canEdit)
 
   useEffect(() => { initAuth() }, [initAuth])
 
@@ -55,7 +57,8 @@ export default function App() {
         <div className="main">
           <div className="main-inner">
             <PreviewBanner />
-            {readonly && !preview && <div className="readonly-banner"><EyeIcon size={22} /> 읽기 전용으로 열람 중이에요. 편집은 프로젝트 소유자만 할 수 있어요.</div>}
+            {readonly && !preview && <div className="readonly-banner"><EyeIcon size={22} /> 읽기 전용으로 열람 중이에요. 편집은 프로젝트 소유자와 슈퍼관리자만 할 수 있어요.</div>}
+            {adminEditing && !preview && <div className="admin-edit-banner"><PencilIcon size={22} /> 슈퍼관리자 권한으로 다른 사람의 프로젝트를 편집 중이에요. 바뀐 내용은 자동으로 저장돼요.</div>}
             {!readonly && <DropZone />}
             {!readonly && <GanttTaskList />}
             <SummaryBar />

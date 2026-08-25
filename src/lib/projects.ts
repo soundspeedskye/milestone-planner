@@ -11,6 +11,8 @@ export interface ProjectSummary {
   is_mine: boolean
   /** owner 또는 슈퍼관리자라서 비밀번호 없이 열 수 있는지 여부 */
   can_bypass_password: boolean
+  /** owner 또는 슈퍼관리자라서 편집할 수 있는지 여부 */
+  can_edit: boolean
   has_password: boolean
   updated_at: string
 }
@@ -21,25 +23,35 @@ export interface OpenedProject {
   name: string
   data: PlannerData
   is_mine: boolean
+  /** owner 또는 슈퍼관리자라서 편집할 수 있는지 여부 */
+  can_edit: boolean
   updated_at: string
+}
+
+/**
+ * can_edit 은 슈퍼관리자 편집 마이그레이션 이후에 생긴 열이다.
+ * 아직 SQL 을 적용하지 않은 환경에서도 owner 는 계속 편집할 수 있게 is_mine 으로 대체한다.
+ */
+function withCanEdit<T extends { is_mine: boolean; can_edit?: boolean }>(row: T): T {
+  return { ...row, can_edit: row.can_edit ?? row.is_mine }
 }
 
 /** 모든 프로젝트 메타 목록 */
 export async function listProjects(): Promise<ProjectSummary[]> {
   const { data, error } = await supabase.rpc('list_projects')
   if (error) throw error
-  return (data ?? []) as ProjectSummary[]
+  return ((data ?? []) as ProjectSummary[]).map(withCanEdit)
 }
 
 /**
- * 프로젝트 열람. owner 는 비번 없이, 그 외에는 비번 일치 시 내용을 반환한다.
+ * 프로젝트 열람. owner·슈퍼관리자는 비번 없이, 그 외에는 비번 일치 시 내용을 반환한다.
  * 비번이 틀리거나 프로젝트가 없으면 null.
  */
 export async function openProject(id: string, password?: string): Promise<OpenedProject | null> {
   const { data, error } = await supabase.rpc('open_project', { p_id: id, p_pw: password ?? null })
   if (error) throw error
   const row = (data as OpenedProject[] | null)?.[0]
-  return row ?? null
+  return row ? withCanEdit(row) : null
 }
 
 /** 새 프로젝트 생성. 비번은 서버에서 해시된다. 생성된 id 반환 */
@@ -53,7 +65,7 @@ export async function createProject(name: string, password: string, data: Planne
   return id as string
 }
 
-/** 내용 저장 (owner 만, RLS 로 보장). updated_at 도 갱신 */
+/** 내용 저장 (owner·슈퍼관리자만, RLS 로 보장). updated_at 도 갱신 */
 export async function saveProjectData(id: string, data: PlannerData): Promise<void> {
   const { error } = await supabase
     .from('projects')
@@ -62,7 +74,7 @@ export async function saveProjectData(id: string, data: PlannerData): Promise<vo
   if (error) throw error
 }
 
-/** 이름 변경 (owner 만) */
+/** 이름 변경 (owner·슈퍼관리자만, RLS 로 보장) */
 export async function renameProject(id: string, name: string): Promise<void> {
   const { error } = await supabase
     .from('projects')

@@ -11,7 +11,7 @@ function fmtDateTime(iso: string): string {
 /** 옛 버전을 미리보기 중일 때 화면 상단에 뜨는 배너 */
 export function PreviewBanner() {
   const preview = useWorkspaceStore(s => s.preview)
-  const isMine = useWorkspaceStore(s => s.current?.isMine ?? false)
+  const canEdit = useWorkspaceStore(s => s.current?.canEdit ?? false)
   const exitPreview = useWorkspaceStore(s => s.exitPreview)
   const restoreVersion = useWorkspaceStore(s => s.restoreVersion)
   if (!preview) return null
@@ -22,7 +22,7 @@ export function PreviewBanner() {
         <ClockIcon size={22} /> <b>{preview.label}</b> ({fmtDateTime(preview.createdAt)}) 미리보기 중 · 지금은 편집이 아니에요
       </span>
       <span className="preview-banner-actions">
-        {isMine && (
+        {canEdit && (
           <button className="btn-save" onClick={() => void restoreVersion(preview)}>
             <RestoreIcon size={20} /> 이 버전으로 복원
           </button>

@@ -6,8 +6,9 @@
 -- 접근 모델
 --   · 앱 진입      : @safience.com 로그인 필수
 --   · 목록 조회    : 로그인 회원이면 모든 프로젝트 메타(내용 제외)가 보임
---   · 내용 열람    : owner 는 바로, 그 외에는 프로젝트 비번 일치 시
---   · 편집/삭제    : owner 만
+--   · 내용 열람    : owner·슈퍼관리자는 바로, 그 외에는 프로젝트 비번 일치 시
+--   · 편집         : owner·슈퍼관리자
+--   · 삭제·비번변경 : owner 만
 -- ─────────────────────────────────────────────────────────────
 
 create extension if not exists pgcrypto;
@@ -94,6 +95,43 @@ from auth.users
 where lower(email) = 'super-tester@safience.com'
 on conflict (user_id) do nothing;
 
+-- ── 권한 판정 헬퍼 ───────────────────────────────────────────
+-- super_admins 는 authenticated 에게 revoke 되어 있어 RLS 정책 식에서 직접
+-- 참조하면 permission denied 가 난다. SECURITY DEFINER 함수로 감싸서 쓴다.
+create or replace function public.is_super_admin()
+returns boolean
+language sql
+security definer
+set search_path = public, extensions
+stable
+as $$
+  select exists (
+    select 1 from public.super_admins sa where sa.user_id = auth.uid()
+  );
+$$;
+
+revoke all on function public.is_super_admin() from public;
+grant execute on function public.is_super_admin() to authenticated;
+
+-- owner 이거나 슈퍼관리자면 편집 가능
+create or replace function public.can_edit_project(p_id uuid)
+returns boolean
+language sql
+security definer
+set search_path = public, extensions
+stable
+as $$
+  select exists (
+    select 1
+    from public.projects p
+    where p.id = p_id
+      and (p.owner_id = auth.uid() or public.is_super_admin())
+  );
+$$;
+
+revoke all on function public.can_edit_project(uuid) from public;
+grant execute on function public.can_edit_project(uuid) to authenticated;
+
 -- 테이블 직접 접근은 owner 본인 행만 (select/insert/update/delete 전부).
 -- 남의 프로젝트 목록·열람은 아래 SECURITY DEFINER 함수로만 나간다.
 drop policy if exists projects_owner_all on public.projects;
@@ -101,6 +139,19 @@ create policy projects_owner_all on public.projects
   for all to authenticated
   using (owner_id = auth.uid())
   with check (owner_id = auth.uid());
+
+-- 슈퍼관리자는 모든 프로젝트를 조회·수정할 수 있다 (정책은 OR 로 합쳐진다).
+-- 삭제·비밀번호 변경은 owner 전용으로 남긴다.
+drop policy if exists projects_super_admin_read on public.projects;
+create policy projects_super_admin_read on public.projects
+  for select to authenticated
+  using (public.is_super_admin());
+
+drop policy if exists projects_super_admin_update on public.projects;
+create policy projects_super_admin_update on public.projects
+  for update to authenticated
+  using (public.is_super_admin())
+  with check (public.is_super_admin());
 
 -- ── RPC: 모든 프로젝트 메타 목록 (내용 data 는 제외) ──────────
 -- 반환 형식에 열을 추가했으므로, 기존 함수가 있는 환경에서는 먼저 재생성한다.
@@ -112,6 +163,7 @@ returns table (
   owner_name   text,
   is_mine      boolean,
   can_bypass_password boolean,
+  can_edit     boolean,
   has_password boolean,
   updated_at   timestamptz
 )
@@ -123,16 +175,10 @@ as $$
   select p.id,
          p.name,
          coalesce(pr.display_name, pr.email, '알 수 없음') as owner_name,
-         p.owner_id = auth.uid()             as is_mine,
-         (
-           p.owner_id = auth.uid()
-           or exists (
-             select 1
-             from public.super_admins sa
-             where sa.user_id = auth.uid()
-           )
-         )                                   as can_bypass_password,
-         p.password_hash is not null         as has_password,
+         p.owner_id = auth.uid()                              as is_mine,
+         (p.owner_id = auth.uid() or public.is_super_admin())  as can_bypass_password,
+         (p.owner_id = auth.uid() or public.is_super_admin())  as can_edit,
+         p.password_hash is not null                          as has_password,
          p.updated_at
   from public.projects p
   left join public.profiles pr on pr.id = p.owner_id
@@ -143,12 +189,15 @@ revoke all on function public.list_projects() from public;
 grant execute on function public.list_projects() to authenticated;
 
 -- ── RPC: 프로젝트 열람 (owner·슈퍼관리자는 비번 무시, 그 외는 비번 대조) ─
+-- can_edit 열을 추가했으므로, 기존 함수가 있는 환경에서는 먼저 재생성한다.
+drop function if exists public.open_project(uuid, text);
 create or replace function public.open_project(p_id uuid, p_pw text default null)
 returns table (
   id         uuid,
   name       text,
   data       jsonb,
   is_mine    boolean,
+  can_edit   boolean,
   updated_at timestamptz
 )
 language sql
@@ -159,17 +208,14 @@ as $$
   select p.id,
          p.name,
          p.data,
-         p.owner_id = auth.uid() as is_mine,
+         p.owner_id = auth.uid()                              as is_mine,
+         (p.owner_id = auth.uid() or public.is_super_admin())  as can_edit,
          p.updated_at
   from public.projects p
   where p.id = p_id
     and (
       p.owner_id = auth.uid()
-      or exists (
-        select 1
-        from public.super_admins sa
-        where sa.user_id = auth.uid()
-      )
+      or public.is_super_admin()
       or (p.password_hash is not null and p.password_hash = crypt(p_pw, p.password_hash))
     );
 $$;
@@ -226,5 +272,6 @@ $$;
 revoke all on function public.set_project_password(uuid, text) from public;
 grant execute on function public.set_project_password(uuid, text) to authenticated;
 
--- 저장(data 갱신)·이름변경·삭제는 owner RLS 로 클라이언트에서 직접 처리한다.
--- (projects_owner_all 정책이 보장)
+-- 저장(data 갱신)·이름변경은 owner·슈퍼관리자, 삭제는 owner 만.
+-- 클라이언트에서 테이블을 직접 갱신하며 RLS 정책이 이를 보장한다.
+-- (projects_owner_all + projects_super_admin_update)

@@ -1280,6 +1280,15 @@ th.holiday {
   border-radius: 10px;
   white-space: nowrap;
 }
+.admin-badge {
+  flex: none;
+  font-size: 11px;
+  color: #1d5c83;
+  background: #e2f1fa;
+  padding: 3px 8px;
+  border-radius: 10px;
+  white-space: nowrap;
+}
 .badge-super-admin {
   flex: none;
   font-size: 10px;
@@ -1530,6 +1539,17 @@ th.holiday {
   margin-bottom: 16px;
 }
 
+/* 슈퍼관리자가 남의 프로젝트를 편집 중일 때 (읽기 전용 배너와 구분되는 파란 톤) */
+.admin-edit-banner {
+  font-size: 12px;
+  color: #1d5c83;
+  background: #e2f1fa;
+  border: 1px solid #b8dcf0;
+  border-radius: 8px;
+  padding: 10px 14px;
+  margin-bottom: 16px;
+}
+
 /* ── 버전 미리보기 배너 ─────────────────────────────── */
 .preview-banner {
   display: flex;
@@ -1703,6 +1723,7 @@ th.holiday {
 .ro-badge,
 .role-range,
 .readonly-banner,
+.admin-edit-banner,
 .version-title {
   display: inline-flex;
   align-items: center;

@@ -32,6 +32,8 @@ export function TopBar({ onOpenSettings, onOpenVersions }: { onOpenSettings: () 
   const saveState = useWorkspaceStore(s => s.saveState)
   const preview = useWorkspaceStore(s => s.preview)
   const renameCurrent = useWorkspaceStore(s => s.renameCurrent)
+  // 남의 프로젝트를 편집 중이면 슈퍼관리자 권한으로 들어온 것
+  const adminEditing = !!current && !current.isMine && current.canEdit
 
   const [editingTitle, setEditingTitle] = useState(false)
   const [draftTitle, setDraftTitle] = useState('')
@@ -100,7 +102,10 @@ export function TopBar({ onOpenSettings, onOpenVersions }: { onOpenSettings: () 
         )}
         {readonly
           ? <span className="ro-badge"><EyeIcon size={22} /> 읽기 전용</span>
-          : <span className="save-state">{saveLabel[saveState]}</span>}
+          : <>
+              {adminEditing && <span className="admin-badge" title="슈퍼관리자 권한으로 편집 중">관리자 편집</span>}
+              <span className="save-state">{saveLabel[saveState]}</span>
+            </>}
       </div>
       <div className="topbar-right">
         <label htmlFor="startDate">프로젝트 시작일</label>

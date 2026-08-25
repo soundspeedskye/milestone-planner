@@ -18,7 +18,7 @@ export function VersionModal({ onClose }: { onClose: () => void }) {
   const previewVersion = useWorkspaceStore(s => s.previewVersion)
   const restoreVersion = useWorkspaceStore(s => s.restoreVersion)
   const show = useToastStore(s => s.show)
-  const isMine = current?.isMine ?? false
+  const canEdit = current?.canEdit ?? false
 
   const [versions, setVersions] = useState<VersionSummary[]>([])
   const [loading, setLoading] = useState(true)
@@ -89,7 +89,7 @@ export function VersionModal({ onClose }: { onClose: () => void }) {
           <button className="btn-close" onClick={onClose} aria-label="닫기">✕</button>
         </div>
 
-        {isMine && (
+        {canEdit && (
           <div className="version-save">
             <div className="version-save-row">
               <input
@@ -133,7 +133,7 @@ export function VersionModal({ onClose }: { onClose: () => void }) {
                   <button className="btn-ver btn-ver-view" onClick={() => handlePreview(v)}>
                     <EyeIcon size={20} /> 보기
                   </button>
-                  {isMine && (
+                  {canEdit && (
                     <>
                       <button className="btn-ver btn-ver-restore" onClick={() => handleRestore(v)}>
                         <RestoreIcon size={20} /> 복원
