@@ -66,6 +66,7 @@ create table if not exists public.projects (
   id            uuid primary key default gen_random_uuid(),
   owner_id      uuid not null references auth.users on delete cascade,
   name          text not null,
+  slug          text,                       -- 주소. null 이면 /p/<uuid> 로 연다
   data          jsonb not null default '{}'::jsonb,
   password_hash text,                       -- null 이면 owner 외엔 못 엶
   created_at    timestamptz not null default now(),
@@ -73,6 +74,21 @@ create table if not exists public.projects (
 );
 
 create index if not exists projects_owner_idx on public.projects(owner_id);
+
+-- 주소는 값이 있을 때만 전역 유일 (주소를 안 쓰는 프로젝트가 여럿일 수 있으므로 부분 인덱스)
+create unique index if not exists projects_slug_key
+  on public.projects (slug) where slug is not null;
+
+-- 소문자 영숫자·하이픈 2~40자.
+-- uuid 모양은 막는다 — 주소 파서가 uuid 를 프로젝트 id 로 해석하기 때문에
+-- 그런 slug 를 허용하면 영영 열 수 없는 주소가 된다.
+alter table public.projects drop constraint if exists projects_slug_format;
+alter table public.projects add constraint projects_slug_format check (
+  slug is null or (
+    slug ~ '^[a-z0-9][a-z0-9-]{0,38}[a-z0-9]$'
+    and slug !~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+  )
+);
 
 alter table public.projects enable row level security;
 
@@ -160,6 +176,7 @@ create or replace function public.list_projects()
 returns table (
   id           uuid,
   name         text,
+  slug         text,
   owner_name   text,
   is_mine      boolean,
   can_bypass_password boolean,
@@ -174,6 +191,7 @@ stable
 as $$
   select p.id,
          p.name,
+         p.slug,
          coalesce(pr.display_name, pr.email, '알 수 없음') as owner_name,
          p.owner_id = auth.uid()                              as is_mine,
          (p.owner_id = auth.uid() or public.is_super_admin())  as can_bypass_password,
@@ -195,6 +213,7 @@ create or replace function public.open_project(p_id uuid, p_pw text default null
 returns table (
   id         uuid,
   name       text,
+  slug       text,
   data       jsonb,
   is_mine    boolean,
   can_edit   boolean,
@@ -207,6 +226,7 @@ stable
 as $$
   select p.id,
          p.name,
+         p.slug,
          p.data,
          p.owner_id = auth.uid()                              as is_mine,
          (p.owner_id = auth.uid() or public.is_super_admin())  as can_edit,
@@ -224,7 +244,10 @@ revoke all on function public.open_project(uuid, text) from public;
 grant execute on function public.open_project(uuid, text) to authenticated;
 
 -- ── RPC: 프로젝트 생성 (비번은 서버에서 해시) ────────────────
-create or replace function public.create_project(p_name text, p_pw text, p_data jsonb)
+-- 주소(p_slug)는 선택 입력이다. 비우면 null 로 저장되고 /p/<uuid> 주소를 쓴다.
+-- 인자가 늘었으므로 옛 3-인자 함수가 남지 않게 먼저 지운다 (오버로드 모호성 방지).
+drop function if exists public.create_project(text, text, jsonb);
+create or replace function public.create_project(p_name text, p_pw text, p_data jsonb, p_slug text default null)
 returns uuid
 language plpgsql
 security definer
@@ -232,14 +255,16 @@ set search_path = public, extensions
 as $$
 declare
   new_id uuid;
+  v_slug text := nullif(btrim(lower(coalesce(p_slug, ''))), '');
 begin
   if auth.uid() is null then
     raise exception 'not authenticated';
   end if;
-  insert into public.projects (owner_id, name, data, password_hash)
+  insert into public.projects (owner_id, name, slug, data, password_hash)
   values (
     auth.uid(),
     p_name,
+    v_slug,
     coalesce(p_data, '{}'::jsonb),
     case when p_pw is null or p_pw = '' then null else crypt(p_pw, gen_salt('bf')) end
   )
@@ -248,8 +273,8 @@ begin
 end;
 $$;
 
-revoke all on function public.create_project(text, text, jsonb) from public;
-grant execute on function public.create_project(text, text, jsonb) to authenticated;
+revoke all on function public.create_project(text, text, jsonb, text) from public;
+grant execute on function public.create_project(text, text, jsonb, text) to authenticated;
 
 -- ── RPC: 비번 변경/해제 (owner 만, 서버에서 해시) ────────────
 create or replace function public.set_project_password(p_id uuid, p_pw text)
