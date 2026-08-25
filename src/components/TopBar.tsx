@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useState } from 'react'
 import { buildMeetingMarkdown, copyToClipboard } from '../lib/markdown'
 import { buildMilestoneSnapshot, downloadJson } from '../lib/snapshot'
 import { usePlannerStore } from '../store/usePlannerStore'
@@ -6,6 +6,7 @@ import { useScheduleStore } from '../store/useScheduleStore'
 import { useToastStore } from '../store/useToastStore'
 import { useWorkspaceStore } from '../store/useWorkspaceStore'
 import { ClockIcon, GearIcon, DiskIcon, EyeIcon } from './icons/AppIcons'
+import { ProjectMetaModal } from './project/ProjectMetaModal'
 import { DateField } from './common/DateField'
 
 const saveLabel: Record<string, string> = {
@@ -31,25 +32,12 @@ export function TopBar({ onOpenSettings, onOpenVersions }: { onOpenSettings: () 
   const readonly = useWorkspaceStore(s => s.readonly)
   const saveState = useWorkspaceStore(s => s.saveState)
   const preview = useWorkspaceStore(s => s.preview)
-  const renameCurrent = useWorkspaceStore(s => s.renameCurrent)
+
   // 남의 프로젝트를 편집 중이면 슈퍼관리자 권한으로 들어온 것
   const adminEditing = !!current && !current.isMine && current.canEdit
 
-  const [editingTitle, setEditingTitle] = useState(false)
-  const [draftTitle, setDraftTitle] = useState('')
-  const cancelEdit = useRef(false)
-
-  const startEditTitle = () => {
-    setDraftTitle(current?.name ?? '')
-    cancelEdit.current = false
-    setEditingTitle(true)
-  }
-  // Enter·다른 곳 클릭(blur) 시 반영, Esc 는 취소. blur 로 일원화한다.
-  const commitTitle = () => {
-    setEditingTitle(false)
-    if (cancelEdit.current) { cancelEdit.current = false; return }
-    void renameCurrent(draftTitle)
-  }
+  // 제목·주소는 인라인이 아니라 모달에서 함께 고친다
+  const [metaOpen, setMetaOpen] = useState(false)
 
   // 일정은 버튼을 눌렀을 때만 필요해서 구독하지 않고 그때 꺼내 쓴다
   const snapshot = () => {
@@ -81,21 +69,8 @@ export function TopBar({ onOpenSettings, onOpenVersions }: { onOpenSettings: () 
         <button className="btn-back" onClick={() => window.history.back()} title="프로젝트 목록으로">← 목록</button>
         {readonly ? (
           <h1>{current?.name ?? '마일스톤 플래너'}</h1>
-        ) : editingTitle ? (
-          <input
-            className="title-edit"
-            value={draftTitle}
-            autoFocus
-            onFocus={e => e.target.select()}
-            onChange={e => setDraftTitle(e.target.value)}
-            onBlur={commitTitle}
-            onKeyDown={e => {
-              if (e.key === 'Enter') e.currentTarget.blur()
-              else if (e.key === 'Escape') { cancelEdit.current = true; e.currentTarget.blur() }
-            }}
-          />
         ) : (
-          <button className="title-edit-btn" onClick={startEditTitle} title="제목 수정">
+          <button className="title-edit-btn" onClick={() => setMetaOpen(true)} title="제목·주소 수정">
             <h1>{current?.name ?? '마일스톤 플래너'}</h1>
             <span className="title-pen"><PencilIcon /></span>
           </button>
@@ -122,6 +97,7 @@ export function TopBar({ onOpenSettings, onOpenVersions }: { onOpenSettings: () 
         <button className="btn-reset" onClick={handleCopyMarkdown}>회의록 Markdown 복사</button>
         <button className="btn-save" onClick={handleExport}><DiskIcon size={24} /> 저장(JSON)</button>
       </div>
+      {metaOpen && <ProjectMetaModal onClose={() => setMetaOpen(false)} />}
     </div>
   )
 }

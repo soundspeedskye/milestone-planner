@@ -23,7 +23,11 @@ export default function App() {
 
   const authLoading = useAuthStore(s => s.loading)
   const initAuth = useAuthStore(s => s.init)
+  const user = useAuthStore(s => s.user)
   const view = useWorkspaceStore(s => s.view)
+  const restoring = useWorkspaceStore(s => s.restoring)
+  const restoreFromUrl = useWorkspaceStore(s => s.restoreFromUrl)
+  const cancelRestore = useWorkspaceStore(s => s.cancelRestore)
   const readonly = useWorkspaceStore(s => s.readonly)
   const preview = useWorkspaceStore(s => s.preview)
   // 내 프로젝트가 아닌데 편집이 열려 있으면 슈퍼관리자 권한으로 보고 있는 것
@@ -31,7 +35,15 @@ export default function App() {
 
   useEffect(() => { initAuth() }, [initAuth])
 
-  if (authLoading) {
+  // 주소(/p/<id>)에 맞춰 화면을 복원한다. 로그인 전이라면 랜딩을 보여주고,
+  // 로그인에 성공하면 user 가 채워지며 이 effect 가 다시 돌아 그 프로젝트를 연다.
+  useEffect(() => {
+    if (authLoading) return
+    if (!user) { cancelRestore(); return }
+    void restoreFromUrl()
+  }, [authLoading, user, restoreFromUrl, cancelRestore])
+
+  if (authLoading || restoring) {
     return (
       <>
         <div className="splash">불러오는 중…</div>

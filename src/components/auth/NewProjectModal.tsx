@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import type { PlannerData } from '../../types'
 import { markLegacyImported } from '../../lib/legacyImport'
+import { isSlugTaken } from '../../lib/projects'
+import { isValidSlug, normalizeSlug } from '../../lib/route'
 import { useWorkspaceStore } from '../../store/useWorkspaceStore'
 import { useToastStore } from '../../store/useToastStore'
 
@@ -18,26 +20,31 @@ export function NewProjectModal({
   defaultName?: string
 }) {
   const [name, setName] = useState(defaultName)
+  const [slug, setSlug] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
   const createProject = useWorkspaceStore(s => s.createProject)
   const show = useToastStore(s => s.show)
   const importing = Boolean(importData)
+  const nextSlug = normalizeSlug(slug)
+  const slugError = nextSlug !== '' && !isValidSlug(nextSlug)
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
     if (!name.trim()) { setError('프로젝트 이름을 입력해 주세요.'); return }
     if (password.length < 4) { setError('비밀번호는 4자 이상으로 정해 주세요.'); return }
+    if (slugError) { setError('주소는 소문자·숫자·하이픈만 쓸 수 있어요 (2~40자).'); return }
     setBusy(true)
     try {
-      await createProject(name.trim(), password, importData)
+      await createProject(name.trim(), password, importData, nextSlug || null)
       if (importing) markLegacyImported()
       show(importing ? '이전 작업을 가져왔어요 ✓' : '프로젝트를 만들었어요 ✓')
       // view 가 project 로 바뀌며 모달이 있는 랜딩이 사라진다
-    } catch {
-      setError(importing ? '가져오지 못했어요. 잠시 후 다시 시도해 주세요.' : '만들지 못했어요. 잠시 후 다시 시도해 주세요.')
+    } catch (e) {
+      if (isSlugTaken(e)) setError('이미 쓰고 있는 주소예요. 다른 주소로 정해 주세요.')
+      else setError(importing ? '가져오지 못했어요. 잠시 후 다시 시도해 주세요.' : '만들지 못했어요. 잠시 후 다시 시도해 주세요.')
       setBusy(false)
     }
   }
@@ -58,6 +65,19 @@ export function NewProjectModal({
             <input value={name} onChange={e => setName(e.target.value)} placeholder="예: 1월 앱 개편" autoFocus required />
           </label>
           <label className="auth-field">
+            <span>주소</span>
+            <span className="slug-input">
+              <span className="slug-prefix">/p/</span>
+              <input
+                value={slug}
+                onChange={e => setSlug(e.target.value)}
+                placeholder="지정하지 않으면 자동으로 생성돼요"
+                spellCheck={false}
+              />
+            </span>
+          </label>
+          {slugError && <p className="auth-hint warn">주소는 소문자·숫자·하이픈만 쓸 수 있어요 (2~40자).</p>}
+          <label className="auth-field">
             <span>열람 비밀번호</span>
             <input
               type="password"
@@ -69,7 +89,7 @@ export function NewProjectModal({
           </label>
           <p className="auth-hint">다른 회원이 이 프로젝트를 열려면 이 비밀번호가 필요해요.</p>
           {error && <p className="auth-error">{error}</p>}
-          <button type="submit" className="auth-submit" disabled={busy}>
+          <button type="submit" className="auth-submit" disabled={busy || slugError}>
             {busy ? (importing ? '가져오는 중…' : '만드는 중…') : (importing ? '가져오기' : '만들기')}
           </button>
         </form>

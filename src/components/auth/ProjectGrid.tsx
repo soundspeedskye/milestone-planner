@@ -26,7 +26,16 @@ export function ProjectGrid() {
   const [legacyAvailable, setLegacyAvailable] = useState(() => hasLegacyData())
   const [showUpdate, setShowUpdate] = useState(false)
   const openProject = useWorkspaceStore(s => s.openProject)
+  // 주소로 바로 들어온 비밀번호 프로젝트도 같은 모달로 받는다
+  const pendingPassword = useWorkspaceStore(s => s.pendingPassword)
+  const cancelPendingPassword = useWorkspaceStore(s => s.cancelPendingPassword)
   const show = useToastStore(s => s.show)
+
+  const activePrompt = prompt ?? pendingPassword
+  const closePrompt = () => {
+    setPrompt(null)
+    if (pendingPassword) cancelPendingPassword()
+  }
 
   // 로그인 후 목록 진입 시, 안 본 최신 업데이트가 있으면 1회 안내한다.
   // 키가 없는 사용자(신규·기능 배포 전부터 쓰던 기존 사용자 모두)도 최신을 1회 본다.
@@ -121,7 +130,7 @@ export function ProjectGrid() {
       </div>
 
       {showUpdate && <UpdateModal onClose={closeUpdate} />}
-      {prompt && <PasswordPrompt project={prompt} onClose={() => setPrompt(null)} />}
+      {activePrompt && <PasswordPrompt project={activePrompt} onClose={closePrompt} />}
       {creating && <NewProjectModal onClose={() => setCreating(false)} />}
       {importData && (
         <NewProjectModal

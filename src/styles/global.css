@@ -1402,6 +1402,35 @@ th.holiday {
   color: #999;
   line-height: 1.6;
 }
+.auth-hint.warn {
+  color: #d97706;
+}
+/* 주소 입력: /p/ 접두사를 입력칸 안쪽에 붙여 보여 준다 */
+.auth-field .slug-input {
+  display: flex;
+  align-items: center;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  background: #fff;
+  overflow: hidden;
+}
+.auth-field .slug-input:focus-within {
+  border-color: #378add;
+}
+.auth-field .slug-prefix {
+  padding: 9px 0 9px 11px;
+  font-size: 14px;
+  font-weight: 400;
+  color: #aaa;
+  user-select: none;
+}
+.auth-field .slug-input input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  border-radius: 0;
+  padding-left: 2px;
+}
 .auth-inline-warn {
   font-size: 11px;
   color: #d97706;
