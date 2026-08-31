@@ -8,6 +8,14 @@ export interface ChangelogEntry {
 /** 최신이 맨 앞. 업데이트할 때 이 배열 맨 앞에 항목을 추가한다. */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "3.5.0",
+    date: "2026-08-31",
+    changes: [
+      "막대가 더 이상 나뉘지 않아요.",
+      "시작일을 고정하면 그 태스크의 첫 직군만 그 날짜에 시작해요.",
+    ],
+  },
+  {
     version: "3.4.0",
     date: "2026-08-25",
     changes: [
