@@ -5,7 +5,7 @@ import { useScheduleStore } from '../store/useScheduleStore'
 import type { RoleSchedule, Task } from '../types'
 import { calcSchedules } from './schedule'
 import { TEST_HOLIDAYS } from './testHolidays'
-import { addWD, buildHolidaySet, fmt, makeIsWorkday, parseDate, type IsWorkday } from './workdays'
+import { addWD, buildHolidaySet, countWD, fmt, makeIsWorkday, parseDate, type IsWorkday } from './workdays'
 
 const isWD = makeIsWorkday(buildHolidaySet({ custom: [], disabled: [] }, TEST_HOLIDAYS))
 
@@ -15,8 +15,7 @@ const isWD = makeIsWorkday(buildHolidaySet({ custom: [], disabled: [] }, TEST_HO
  * 다음 영업일부터 이어서 센다.
  */
 interface LegacyTask { id: number; name: string; 기획: number; PD: number; BE: number; FE: number }
-/** 참조 구현은 막대가 쪼개질 일이 없으므로 segments 없이 만든다 */
-type RefRole = Omit<RoleSchedule, 'segments'>
+type RefRole = RoleSchedule
 function refCalc(tasks: LegacyTask[], projectStart: Date, wd: IsWorkday) {
   // roleEnd = 마지막으로 일한 날(inclusive). 시작 전날로 두면 첫날이 projectStart가 된다.
   const floor = new Date(projectStart); floor.setDate(floor.getDate() - 1)
@@ -62,9 +61,9 @@ function toNewTask(t: LegacyTask): Task {
   return { id: t.id, name: t.name, days: { 기획: t.기획, PD: t.PD, BE: t.BE, FE: t.FE } }
 }
 
-/** 토막들을 '시작~종료' 문자열로 (연속이면 1개) */
-function segs(r: RoleSchedule) {
-  return r.segments.map(g => `${fmt(g.start)}~${fmt(g.end)}`)
+/** 일정을 '시작~종료' 문자열로 */
+function period(r: RoleSchedule) {
+  return `${fmt(r.start)}~${fmt(r.end)}`
 }
 
 function normalize(s: { roles: Record<string, RefRole> }) {
@@ -165,7 +164,7 @@ describe('calcSchedules — 신규 기능', () => {
 describe('고정일(앵커) 우선 배치', () => {
   const start = parseDate('2026-07-20') // 월
 
-  it('앵커가 점유한 날은 앞 태스크가 건너뛰고 이어서 일한다', () => {
+  it('앵커가 점유한 날에 걸리면 앞 태스크가 통째로 앵커 뒤로 밀린다', () => {
     const tasks: Task[] = [
       { id: 1, name: 'T1', days: { 기획: 8 } },
       { id: 2, name: 'T2', days: { 기획: 2 }, fixedStart: '2026-07-22' },
@@ -173,16 +172,12 @@ describe('고정일(앵커) 우선 배치', () => {
     ]
     const [t1, t2, t3] = calcSchedules(tasks, DEFAULT_ROLES, start, isWD)
     // 앵커는 지정한 날 그대로
-    expect(segs(t2.roles['기획'])).toEqual(['2026-07-22~2026-07-23'])
-    // T1은 앵커 기간에 멈췄다가 이어서 8일을 채운다
-    expect(segs(t1.roles['기획'])).toEqual(['2026-07-20~2026-07-21', '2026-07-24~2026-07-31'])
+    expect(period(t2.roles['기획'])).toBe('2026-07-22~2026-07-23')
+    // T1은 7/20~21에 2일밖에 못 넣으므로 쪼개지 않고 앵커 뒤에서 8일을 연속으로 잡는다
+    expect(period(t1.roles['기획'])).toBe('2026-07-24~2026-08-04')
     expect(t1.roles['기획'].days).toBe(8)
-    // 토막별 영업일 수도 계산 단계에서 담아 둔다 (화면에서 다시 세지 않도록)
-    expect(t1.roles['기획'].segments.map(g => g.days)).toEqual([2, 6])
-    expect(fmt(t1.roles['기획'].start)).toBe('2026-07-20')
-    expect(fmt(t1.roles['기획'].end)).toBe('2026-07-31')
     // T3는 앞의 점유가 모두 끝난 다음 빈 날
-    expect(segs(t3.roles['기획'])).toEqual(['2026-08-03~2026-08-03'])
+    expect(period(t3.roles['기획'])).toBe('2026-08-05~2026-08-05')
   })
 
   it('앵커끼리 겹치면 지정일이 점유된 뒤 순서 앵커가 첫 빈 날로 밀린다', () => {
@@ -191,39 +186,58 @@ describe('고정일(앵커) 우선 배치', () => {
       { id: 2, name: 'B', days: { 기획: 3 }, fixedStart: '2026-07-22' },
     ]
     const [a, b] = calcSchedules(tasks, DEFAULT_ROLES, start, isWD)
-    expect(segs(a.roles['기획'])).toEqual(['2026-07-20~2026-07-24'])
-    expect(segs(b.roles['기획'])).toEqual(['2026-07-27~2026-07-29'])
+    expect(period(a.roles['기획'])).toBe('2026-07-20~2026-07-24')
+    expect(period(b.roles['기획'])).toBe('2026-07-27~2026-07-29')
   })
 
-  it('앵커도 진행 중 다른 앵커에 부딪히면 시작일은 지키고 쪼개진다', () => {
+  it('앵커도 진행 중 다른 앵커에 부딪히면 쪼개지 않고 그 뒤 빈 자리로 간다', () => {
     const tasks: Task[] = [
       { id: 1, name: 'A', days: { 기획: 2 }, fixedStart: '2026-07-23' },
       { id: 2, name: 'B', days: { 기획: 4 }, fixedStart: '2026-07-20' },
     ]
     const [a, b] = calcSchedules(tasks, DEFAULT_ROLES, start, isWD)
-    expect(segs(a.roles['기획'])).toEqual(['2026-07-23~2026-07-24'])
-    expect(segs(b.roles['기획'])).toEqual(['2026-07-20~2026-07-22', '2026-07-27~2026-07-27'])
+    expect(period(a.roles['기획'])).toBe('2026-07-23~2026-07-24')
+    // B는 7/20~22에 3일밖에 못 넣으므로 A 뒤에서 4일을 연속으로 잡는다
+    expect(period(b.roles['기획'])).toBe('2026-07-27~2026-07-30')
   })
 
-  it('하위 직군은 상위 직군의 마지막 토막이 끝난 뒤 시작한다', () => {
+  it('고정일은 시작 직군에만 적용되고 뒤 직군은 자기 커서를 따른다', () => {
     const tasks: Task[] = [
-      { id: 1, name: 'T1', days: { 기획: 4, PD: 2 } },
-      { id: 2, name: 'T2', days: { 기획: 2 }, fixedStart: '2026-07-22' },
+      { id: 1, name: 'T1', days: { 기획: 2, BE: 5 } },
+      // 목록 뒤에 있지만 기획은 고정일을 지킨다. BE는 T1 뒤에 붙는다.
+      { id: 2, name: 'T2', days: { 기획: 1, BE: 2 }, fixedStart: '2026-07-20' },
     ]
-    const [t1] = calcSchedules(tasks, DEFAULT_ROLES, start, isWD)
-    expect(segs(t1.roles['기획'])).toEqual(['2026-07-20~2026-07-21', '2026-07-24~2026-07-27'])
-    // 기획 마지막 토막이 7/27에 끝나므로 PD는 7/28부터
-    expect(segs(t1.roles['PD'])).toEqual(['2026-07-28~2026-07-29'])
+    const [t1, t2] = calcSchedules(tasks, DEFAULT_ROLES, start, isWD)
+    expect(period(t2.roles['기획'])).toBe('2026-07-20~2026-07-20')
+    // T1 기획은 앵커가 쓴 7/20을 피해 7/21부터
+    expect(period(t1.roles['기획'])).toBe('2026-07-21~2026-07-22')
+    // T1 BE가 먼저(7/23~7/29), T2 BE는 그 뒤 — 고정일 7/20으로 당겨지지 않는다
+    expect(period(t1.roles['BE'])).toBe('2026-07-23~2026-07-29')
+    expect(period(t2.roles['BE'])).toBe('2026-07-30~2026-07-31')
   })
 
-  it('고정일이 없으면 막대는 쪼개지지 않는다', () => {
+  it('시작 직군은 소요일이 있는 첫 직군이다 (기획이 0일이면 BE가 고정일을 받는다)', () => {
     const tasks: Task[] = [
-      { id: 1, name: 'A', days: { 기획: 3, PD: 2 } },
-      { id: 2, name: 'B', days: { 기획: 4, PD: 3 } },
+      { id: 1, name: 'T1', days: { BE: 3 } },
+      { id: 2, name: 'T2', days: { BE: 2 }, fixedStart: '2026-07-20' },
+    ]
+    const [t1, t2] = calcSchedules(tasks, DEFAULT_ROLES, start, isWD)
+    expect(period(t2.roles['BE'])).toBe('2026-07-20~2026-07-21')
+    expect(period(t1.roles['BE'])).toBe('2026-07-22~2026-07-24')
+  })
+
+  it('막대는 어떤 경우에도 쪼개지지 않는다', () => {
+    const tasks: Task[] = [
+      { id: 1, name: 'A', days: { 기획: 8, PD: 2 } },
+      { id: 2, name: 'B', days: { 기획: 2 }, fixedStart: '2026-07-22' },
+      { id: 3, name: 'C', days: { 기획: 4, PD: 3 } },
     ]
     const schedules = calcSchedules(tasks, DEFAULT_ROLES, start, isWD)
     schedules.forEach(s =>
-      Object.values(s.roles).forEach(r => expect(r.segments).toHaveLength(1)),
+      Object.values(s.roles).forEach(r =>
+        // 시작~종료 사이 영업일 수가 소요일과 같으면 중간에 빈 구간이 없다는 뜻
+        expect(countWD(r.start, r.end, isWD) + 1).toBe(r.days),
+      ),
     )
   })
 })

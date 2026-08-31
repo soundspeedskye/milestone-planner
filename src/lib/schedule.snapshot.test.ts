@@ -3,7 +3,7 @@ import { ROLE_PALETTES } from '../constants/roles'
 import type { RoleDef, Task } from '../types'
 import { calcSchedules } from './schedule'
 import { TEST_HOLIDAYS } from './testHolidays'
-import { buildHolidaySet, fmt, makeIsWorkday, parseDate } from './workdays'
+import { buildHolidaySet, countWD, fmt, makeIsWorkday, parseDate } from './workdays'
 
 /**
  * 실제 프로젝트(브링앤티) 스냅샷 재현 테스트.
@@ -88,9 +88,11 @@ describe('실제 프로젝트 스냅샷 재현', () => {
     expect(actual).toEqual(expected)
   })
 
-  it('막대가 쪼개지지 않는다 (앵커가 목록 맨 앞이라 끊길 일이 없다)', () => {
+  it('막대가 쪼개지지 않는다', () => {
     schedules.forEach(s =>
-      Object.values(s.roles).forEach(r => expect(r.segments).toHaveLength(1)),
+      Object.values(s.roles).forEach(r =>
+        expect(countWD(r.start, r.end, isWD) + 1).toBe(r.days),
+      ),
     )
   })
 })

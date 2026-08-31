@@ -148,14 +148,9 @@ export function GanttChart() {
               <Fragment key={s.id}>
                 {rks.map((r, ri) => {
                   const info = s.roles[r.id];
-                  // 앵커에 끊긴 토막들. 토막 사이 칸은 비워 둔다.
                   // 셀마다 다시 훑지 않도록 경계값은 행에서 한 번만 뽑는다.
-                  const segs = info.segments.map(
-                    (g) => [fmt(g.start), fmt(g.end)] as const,
-                  );
-                  const split = segs.length > 1;
-                  const first = segs[0][0];
-                  const last = segs[segs.length - 1][1];
+                  const first = fmt(info.start);
+                  const last = fmt(info.end);
                   const roleOff = roleOffSet[r.id];
                   return (
                     <tr key={r.id}>
@@ -174,12 +169,7 @@ export function GanttChart() {
                         // 막대 기간 안 주말·공휴일은 예전처럼 빗금(bar-off)을 깐다.
                         // 연차(직군 휴무)는 일정에 영향이 없어 그 날도 막대를 채우고,
                         // 위에 세로 "연차" 라벨만 얹는다.
-                        const inRange = split
-                          ? segs.some(([sf, ef]) => c.df >= sf && c.df <= ef)
-                          : c.df >= first && c.df <= last;
-                        // 토막 사이(고정일 태스크에 자리를 내준 구간)는 점선으로 잇는다
-                        const inGap =
-                          split && !inRange && c.df > first && c.df < last;
+                        const inRange = c.df >= first && c.df <= last;
                         const hatched = inRange && !!c.off;
                         const filled = inRange && !c.off;
                         // 연차는 막대 기간 안에서만 표기한다 (막대 밖은 표기 안 함)
@@ -187,10 +177,9 @@ export function GanttChart() {
                         return (
                           <td
                             key={ci}
-                            className={`date-cell ${c.off}${hatched ? " bar-off" : ""}${inGap ? " bar-link" : ""}`}
+                            className={`date-cell ${c.off}${hatched ? " bar-off" : ""}`}
                             style={{
                               ...(filled ? { background: r.palette.bar } : {}),
-                              ...(inGap ? { color: r.palette.bar } : {}),
                               ...(c.isToday
                                 ? { borderLeft: "2px solid #E24B4A" }
                                 : {}),

@@ -37,19 +37,13 @@ export function RoleView() {
     <div className="role-view">
       <div className="role-timeline">
         {roles.map(role => {
-          // 앵커에 끊긴 토막을 각각 하나의 블록으로 펼친다. 고정일 때문에 간트 목록
-          // 순서가 시간 순서와 어긋날 수 있어 시작일로 정렬한다.
+          // 고정일 때문에 간트 목록 순서가 시간 순서와 어긋날 수 있어 시작일로 정렬한다.
           const blocks = active
             .filter(s => s.roles[role.id])
-            .flatMap(s =>
-              s.roles[role.id].segments.map(seg => ({
-                id: s.id,
-                start: seg.start,
-                end: seg.end,
-                // 토막별 영업일 수는 계산 단계에서 이미 세어 둔 값을 그대로 쓴다
-                days: seg.days,
-              })),
-            )
+            .map(s => {
+              const info = s.roles[role.id]
+              return { id: s.id, start: info.start, end: info.end, days: info.days }
+            })
             .sort((a, b) => a.start.getTime() - b.start.getTime())
           if (blocks.length === 0) return null
 
