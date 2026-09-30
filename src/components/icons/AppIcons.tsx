@@ -1,9 +1,24 @@
 /**
- * 앱 전역 일러스트 아이콘 (후보 E · 파스텔 멀티).
- * 그림책 화법: 외곽선 없는 부드러운 채색 + 밝은 하이라이트 덩어리 + 잎 점 텍스처.
- * viewBox 0 0 44 44 기준으로 그리고 size 로 스케일한다.
+ * 앱 전역 아이콘 (Accent Two-Tone).
+ *
+ * 24px 그리드. 두 가지 규칙만 지킨다.
+ *  1. 몸통은 currentColor — 진한 면은 그대로, 옅은 면은 투명도 35%.
+ *     버튼·배너의 글자 색을 그대로 따르므로 호버·비활성·검은 버튼 위에서 자동으로 맞는다.
+ *  2. 의미가 있는 한 조각에만 액센트 색을 쓴다. 네 가지뿐이다.
+ *     파랑 = 정보·시간 / 앰버 = 주의 / 빨강 = 고정 / 초록 = 되돌리기
+ *
+ * 액센트는 CSS 변수(--icon-blue 등)라 어두운 표면에서 global.css 가 밝은 값으로 덮는다.
+ * 간트 아이콘만 직군 막대 색 3개를 그대로 쓴다 (앱의 정체성이라 뉴트럴로 죽이지 않는다).
  */
 import type { ReactNode } from 'react'
+
+const BLUE = 'var(--icon-blue)'
+const AMBER = 'var(--icon-amber)'
+const RED = 'var(--icon-red)'
+const GREEN = 'var(--icon-green)'
+
+/** 몸통의 옅은 면. 글자 색을 그대로 쓰되 투명도만 낮춘다 */
+const SOFT = 0.35
 
 interface IconProps {
   /** 렌더 크기(px). 기본 20 */
@@ -23,8 +38,9 @@ function Svg({
     <svg
       width={size}
       height={size}
-      viewBox="0 0 44 44"
+      viewBox="0 0 24 24"
       className={className}
+      fill="none"
       role={title ? 'img' : undefined}
       aria-label={title}
       aria-hidden={title ? undefined : true}
@@ -36,127 +52,183 @@ function Svg({
   )
 }
 
-/** 설정 · 민트 톱니 */
+/** 설정 · 슬라이더 (톱니는 작아지면 그냥 원이 되어 슬라이더로 바꿨다) */
 export function GearIcon(p: IconProps) {
   return (
     <Svg {...p}>
-      <g fill="#5DCAA5">
-        <circle cx="22" cy="10" r="6" /><circle cx="34" cy="22" r="6" />
-        <circle cx="22" cy="34" r="6" /><circle cx="10" cy="22" r="6" />
-        <circle cx="30.5" cy="13.5" r="5.5" /><circle cx="30.5" cy="30.5" r="5.5" />
-        <circle cx="13.5" cy="30.5" r="5.5" /><circle cx="13.5" cy="13.5" r="5.5" />
-        <circle cx="22" cy="22" r="12" />
+      <g fill="currentColor" opacity={SOFT}>
+        <rect x="3.2" y="5.6" width="17.6" height="1.8" rx=".9" />
+        <rect x="3.2" y="11.1" width="17.6" height="1.8" rx=".9" />
+        <rect x="3.2" y="16.6" width="17.6" height="1.8" rx=".9" />
       </g>
-      <path d="M14 15 a11 11 0 0 1 9 -5" fill="none" stroke="#9FE1CB" strokeWidth="4" strokeLinecap="round" />
-      <circle cx="22" cy="22" r="4.5" fill="#E1F5EE" />
-      <circle cx="17" cy="12" r="1.1" fill="#0F6E56" /><circle cx="32" cy="18" r="1.1" fill="#0F6E56" />
+      <g fill={BLUE}>
+        <circle cx="14.4" cy="6.5" r="2.7" />
+        <circle cx="9.6" cy="12" r="2.7" />
+        <circle cx="14.4" cy="17.5" r="2.7" />
+      </g>
     </Svg>
   )
 }
 
-/** 버전 · 하늘색 시계 */
+/** 버전 · 시계 */
 export function ClockIcon(p: IconProps) {
   return (
     <Svg {...p}>
-      <g fill="#85B7EB">
-        <circle cx="15" cy="17" r="8" /><circle cx="29" cy="16" r="8" />
-        <circle cx="17" cy="29" r="8" /><circle cx="28" cy="29" r="8" /><circle cx="22" cy="22" r="11" />
-      </g>
-      <circle cx="17" cy="17" r="6" fill="#B5D4F4" />
-      <path d="M22 22 V14 M22 22 L28 25" stroke="#185FA5" strokeWidth="2.6" strokeLinecap="round" fill="none" />
-      <circle cx="22" cy="22" r="1.8" fill="#185FA5" />
+      <circle cx="12" cy="12" r="9" fill="currentColor" opacity={SOFT} />
+      <path
+        d="M12.95 6.9a.95.95 0 0 0-1.9 0v5.4c0 .33.17.63.45.8l3.4 2.05a.95.95 0 0 0 .98-1.63L12.95 11.7Z"
+        fill={BLUE}
+      />
     </Svg>
   )
 }
 
-/** 저장 · 살구색 디스크 */
+/** 저장 · 내려받기 화살표 (실제 동작이 JSON 다운로드라 플로피보다 맞다) */
 export function DiskIcon(p: IconProps) {
   return (
     <Svg {...p}>
-      <path d="M9 13 q0 -4 4 -4 h16 q3 3 6 6 v18 q0 4 -4 4 H13 q-4 0 -4 -4 Z" fill="#EF9F27" />
-      <path d="M15 9 h13 v7 q0 2 -2 2 H17 q-2 0 -2 -2 Z" fill="#FAC775" />
-      <rect x="14" y="24" width="16" height="9" rx="3" fill="#FAEEDA" />
-      <circle cx="13" cy="21" r="1.2" fill="#854F0B" /><circle cx="31" cy="30" r="1.2" fill="#854F0B" />
+      <rect x="3.8" y="18" width="16.4" height="2.2" rx="1.1" fill="currentColor" opacity={SOFT} />
+      <path
+        d="M12.95 3.9a.95.95 0 0 0-1.9 0v8.24L8.6 9.7a.95.95 0 1 0-1.35 1.34l4.08 4.08a.95.95 0 0 0 1.34 0l4.08-4.08A.95.95 0 0 0 15.4 9.7l-2.45 2.44Z"
+        fill={BLUE}
+      />
     </Svg>
   )
 }
 
-/** 수정 · 핑크 연필 */
+/** 수정 · 연필 */
 export function PencilIcon(p: IconProps) {
   return (
     <Svg {...p}>
-      <g transform="rotate(45 22 22)">
-        <path d="M17 9 q5 -2 10 0 v18 q-5 2 -10 0 Z" fill="#ED93B1" />
-        <path d="M17 9 q5 -2 10 0 v5 q-5 2 -10 0 Z" fill="#F4C0D1" />
-        <path d="M17 27 q5 2 10 0 l-5 8 Z" fill="#993556" />
-      </g>
-      <circle cx="14" cy="16" r="1.2" fill="#993556" /><circle cx="31" cy="24" r="1.2" fill="#993556" />
+      <path d="M3.2 16.4 14.9 4.7l4.4 4.4L7.6 20.8l-4.9 1 .5-5.4Z" fill="currentColor" />
+      <path
+        d="M16.1 3.5a2.6 2.6 0 0 1 3.7 0l.7.7a2.6 2.6 0 0 1 0 3.7l-1 1-4.4-4.4Z"
+        fill={AMBER}
+      />
     </Svg>
   )
 }
 
-/** 보기 · 보라 눈 */
+/** 보기 · 눈 */
 export function EyeIcon(p: IconProps) {
   return (
     <Svg {...p}>
-      <path d="M5 22 Q22 8 39 22 Q22 36 5 22 Z" fill="#7F77DD" />
-      <path d="M9 20 Q22 11 35 20 Q22 16 9 20 Z" fill="#AFA9EC" />
-      <circle cx="22" cy="22" r="6.5" fill="#3C3489" /><circle cx="22" cy="22" r="2.6" fill="#EEEDFE" />
+      <path
+        d="M12 5.3c-5.2 0-9.4 6.7-9.4 6.7s4.2 6.7 9.4 6.7 9.4-6.7 9.4-6.7S17.2 5.3 12 5.3Z"
+        fill="currentColor"
+        opacity={SOFT}
+      />
+      <circle cx="12" cy="12" r="3.4" fill={AMBER} />
     </Svg>
   )
 }
 
-/** 잠금 · 코랄 자물쇠 */
+/** 잠금 · 자물쇠 */
 export function LockIcon(p: IconProps) {
   return (
     <Svg {...p}>
-      <path d="M15 21 v-4 a7 7 0 0 1 14 0 v4" fill="none" stroke="#993C1D" strokeWidth="3.4" strokeLinecap="round" />
-      <path d="M11 22 q0 -3 3 -3 h16 q3 0 3 3 v10 q0 3 -3 3 H14 q-3 0 -3 -3 Z" fill="#F0997B" />
-      <path d="M11 22 q0 -3 3 -3 h16 q3 0 3 3 v3 H11 Z" fill="#F5C4B3" />
-      <circle cx="22" cy="26.5" r="2.4" fill="#7A2E14" /><rect x="21" y="27" width="2" height="4.5" rx="1" fill="#7A2E14" />
+      <rect x="4.2" y="10.2" width="15.6" height="10.5" rx="2.8" fill="currentColor" opacity={SOFT} />
+      <path
+        d="M12 2.6a5 5 0 0 0-5 5v3.6h2V7.6a3 3 0 0 1 6 0v3.6h2V7.6a5 5 0 0 0-5-5Z"
+        fill="currentColor"
+      />
+      <circle cx="12" cy="15.4" r="2.5" fill={AMBER} />
     </Svg>
   )
 }
 
-/** 캘린더 · 하늘색 달력 */
+/** 캘린더 */
 export function CalendarIcon(p: IconProps) {
   return (
     <Svg {...p}>
-      <path d="M8 14 q0 -3 3 -3 h22 q3 0 3 3 v20 q0 3 -3 3 H11 q-3 0 -3 -3 Z" fill="#85B7EB" />
-      <path d="M8 14 q0 -3 3 -3 h22 q3 0 3 3 v5 H8 Z" fill="#185FA5" />
-      <rect x="13" y="7" width="3.4" height="8" rx="1.7" fill="#185FA5" /><rect x="27.6" y="7" width="3.4" height="8" rx="1.7" fill="#185FA5" />
-      <g fill="#E6F1FB"><circle cx="16" cy="26" r="2" /><circle cx="22" cy="26" r="2" /><circle cx="28" cy="26" r="2" /><circle cx="16" cy="32" r="2" /><circle cx="22" cy="32" r="2" /></g>
+      <rect x="3.2" y="5" width="17.6" height="15.8" rx="3" fill="currentColor" opacity={SOFT} />
+      <path d="M3.2 8a3 3 0 0 1 3-3h11.6a3 3 0 0 1 3 3v1.6H3.2Z" fill={BLUE} />
+      <rect x="6.9" y="2.4" width="2" height="4.6" rx="1" fill={BLUE} />
+      <rect x="15.1" y="2.4" width="2" height="4.6" rx="1" fill={BLUE} />
     </Svg>
   )
 }
 
-/** 시작일 고정 · 빨강 핀 */
+/** 시작일 고정 · 압정 */
 export function PinIcon(p: IconProps) {
   return (
     <Svg {...p}>
-      <path d="M22 5 q10 0 10 9 q0 8 -10 24 q-10 -16 -10 -24 q0 -9 10 -9 Z" fill="#E24B4A" />
-      <path d="M22 5 q10 0 10 9 q0 3 -2 8 q-8 -2 -14 -7 q1.5 -10 6 -10 Z" fill="#F09595" />
-      <circle cx="22" cy="14" r="3.8" fill="#FCEBEB" />
+      <path
+        d="M9.2 3.2h5.6a1 1 0 0 1 1 1.1l-.7 4.9 3.1 2.8a1 1 0 0 1 .3.7v.9a1 1 0 0 1-1 1H6.5a1 1 0 0 1-1-1v-.9a1 1 0 0 1 .3-.7l3.1-2.8-.7-4.9a1 1 0 0 1 1-1.1Z"
+        fill={RED}
+      />
+      <rect x="11" y="14.6" width="2" height="6.4" rx="1" fill="currentColor" opacity={SOFT} />
     </Svg>
   )
 }
 
-/** 꺼내기 · 되돌림 화살표 (초록) */
+/** 꺼내기 · 이젝트 */
 export function EjectIcon(p: IconProps) {
   return (
     <Svg {...p}>
-      <path d="M18 13 L9 21 L18 29 v-5 q10 -1 13 7 q2 -13 -13 -14 Z" fill="#639922" />
-      <path d="M18 13 L9 21 L18 29 v-5 q10 -1 13 7 q2 -13 -13 -14 Z" fill="none" stroke="#3B6D11" strokeWidth="1.4" strokeLinejoin="round" />
+      <path
+        d="M11.2 4.9a1 1 0 0 1 1.6 0l6.3 8a1 1 0 0 1-.8 1.6H5.7a1 1 0 0 1-.8-1.6Z"
+        fill={GREEN}
+      />
+      <rect x="5.2" y="17.2" width="13.6" height="2.6" rx="1.3" fill="currentColor" opacity={SOFT} />
     </Svg>
   )
 }
 
-/** 복원 · 되감기 원형 화살표 (파랑) */
+/** 복원 · 되감기 */
 export function RestoreIcon(p: IconProps) {
   return (
     <Svg {...p}>
-      <path d="M22 11 a11 11 0 1 1 -10.5 14" fill="none" stroke="#378add" strokeWidth="3.6" strokeLinecap="round" />
-      <path d="M22 6 l1 9 l-8 -3 Z" fill="#185FA5" />
+      <path
+        d="M3 12a9 9 0 1 0 2.64-6.36"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2.4"
+        strokeLinecap="round"
+        opacity={SOFT}
+      />
+      <path
+        d="M3.2 3.2a1 1 0 0 0-1 1v4.4a1 1 0 0 0 1 1h4.4a1 1 0 0 0 0-2H4.2V4.2a1 1 0 0 0-1-1Z"
+        fill={BLUE}
+      />
+    </Svg>
+  )
+}
+
+/** 프로젝트 목록 · 2×2 카드 */
+export function GridIcon(p: IconProps) {
+  return (
+    <Svg {...p}>
+      <rect x="3.4" y="3.4" width="7.8" height="7.8" rx="2.4" fill={BLUE} />
+      <rect x="12.8" y="3.4" width="7.8" height="7.8" rx="2.4" fill="currentColor" opacity={SOFT} />
+      <rect x="3.4" y="12.8" width="7.8" height="7.8" rx="2.4" fill="currentColor" opacity={SOFT} />
+      <rect x="12.8" y="12.8" width="7.8" height="7.8" rx="2.4" fill={BLUE} />
+    </Svg>
+  )
+}
+
+/** 간트 · 직군 막대 3줄 (여기만 직군색을 그대로 쓴다) */
+export function ChartIcon(p: IconProps) {
+  return (
+    <Svg {...p}>
+      <rect x="3.2" y="4.8" width="11" height="4.2" rx="2.1" fill="#6EA8E4" />
+      <rect x="7.4" y="9.9" width="13.4" height="4.2" rx="2.1" fill="#4FBE9B" />
+      <rect x="5.2" y="15" width="9.4" height="4.2" rx="2.1" fill="#E8A63F" />
+    </Svg>
+  )
+}
+
+/** 태스크 보관함 · 아카이브 상자 */
+export function BoxIcon(p: IconProps) {
+  return (
+    <Svg {...p}>
+      <rect x="2.6" y="3.4" width="18.8" height="4.8" rx="1.8" fill={AMBER} />
+      <path
+        d="M4.2 9.8h15.6v9a2.4 2.4 0 0 1-2.4 2.4H6.6a2.4 2.4 0 0 1-2.4-2.4Z"
+        fill="currentColor"
+        opacity={SOFT}
+      />
+      <rect x="9.4" y="12.4" width="5.2" height="1.9" rx=".95" fill="currentColor" />
     </Svg>
   )
 }
