@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { usePlannerStore } from '../../store/usePlannerStore'
 import { DateField } from '../common/DateField'
 import { PencilIcon } from '../icons/AppIcons'
@@ -14,6 +15,7 @@ interface Props {
  * 간트 목록의 태스크를 이름·직군별 일수·직군별 시작일만 수정하는 모달.
  * 보관함 카드(pool-task) 스타일을 재사용하되, 스토어에 바로 쓰지 않고
  * 로컬 드래프트에 담았다가 '저장'을 눌러야 커밋한다(취소하면 버린다).
+ * sticky 태스크 셀의 쌓임 맥락에 갇히지 않도록 body로 포털한다.
  */
 export function TaskEditModal({ task, roles, onClose }: Props) {
   const updateTaskName = usePlannerStore(s => s.updateTaskName)
@@ -41,7 +43,7 @@ export function TaskEditModal({ task, roles, onClose }: Props) {
     onClose()
   }
 
-  return (
+  return createPortal(
     <div className="modal-overlay" onClick={e => { if (e.target === e.currentTarget) onClose() }}>
       <div className="modal modal-task-edit">
         <div className="modal-header">
@@ -103,6 +105,7 @@ export function TaskEditModal({ task, roles, onClose }: Props) {
           <button className="btn-save" onClick={save}>저장</button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }
