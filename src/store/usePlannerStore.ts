@@ -22,6 +22,7 @@ export interface PlannerState {
   ejectFromGantt: (id: number) => void
   reorderGantt: (from: number, to: number) => void
   setFixedStart: (id: number, date: string | undefined) => void
+  setRoleStart: (id: number, roleId: string, date: string | undefined) => void
 
   addRole: () => void
   removeRole: (id: string) => void
@@ -72,6 +73,14 @@ export function plannerSnapshot(): PlannerData {
 const updateTask = (tasks: Task[], id: number, patch: (t: Task) => Task) =>
   tasks.map(t => (t.id === id ? patch(t) : t))
 
+/** 사라진 직군에 걸려 있던 고정 시작일을 태스크에서 떼어낸다 */
+const dropRoleStart = (task: Task, roleId: string): Task => {
+  if (!task.roleStarts?.[roleId]) return task
+  const { [roleId]: _dropped, ...next } = task.roleStarts
+  const { roleStarts: _drop, ...rest } = task
+  return Object.keys(next).length ? { ...rest, roleStarts: next } : rest
+}
+
 export const usePlannerStore = create<PlannerState>()(
     set => ({
       ...defaultPlannerData(),
@@ -112,7 +121,8 @@ export const usePlannerStore = create<PlannerState>()(
       ejectFromGantt: id => set(s => {
         const task = s.ganttTasks.find(t => t.id === id)
         if (!task) return s
-        const { fixedStart: _drop, ...rest } = task
+        // 보관함으로 돌아가면 일정에 얽힌 고정 시작일은 모두 버린다
+        const { fixedStart: _drop, roleStarts: _dropRoles, ...rest } = task
         return { ganttTasks: s.ganttTasks.filter(t => t.id !== id), poolTasks: [...s.poolTasks, rest] }
       }),
       reorderGantt: (from, to) => set(s => {
@@ -127,19 +137,30 @@ export const usePlannerStore = create<PlannerState>()(
           return date ? { ...rest, fixedStart: date } : rest
         }),
       })),
+      setRoleStart: (id, roleId, date) => set(s => ({
+        ganttTasks: updateTask(s.ganttTasks, id, t => {
+          const next = { ...t.roleStarts }
+          if (date) next[roleId] = date
+          else delete next[roleId]
+          // 빈 객체를 남기면 저장 데이터에 쓸모없는 키가 쌓인다
+          const { roleStarts: _drop, ...rest } = t
+          return Object.keys(next).length ? { ...rest, roleStarts: next } : rest
+        }),
+      })),
 
       addRole: () => set(s => {
         const id = `role_${Date.now()}`
         const palette = ROLE_PALETTES[s.roles.length % ROLE_PALETTES.length]
         return { roles: [...s.roles, { id, name: `직군 ${s.roles.length + 1}`, palette, dependsOn: [] }] }
       }),
-      // 직군이 사라지면 그 직군에만 걸어둔 휴무일도 같이 정리한다
+      // 직군이 사라지면 그 직군에만 걸어둔 휴무일·시작일도 같이 정리한다
       removeRole: id => set(s => {
         const { [id]: _dropped, ...byRole } = s.holidays.byRole
         return {
           roles: s.roles
             .filter(r => r.id !== id)
             .map(r => ({ ...r, dependsOn: r.dependsOn.filter(d => d !== id) })),
+          ganttTasks: s.ganttTasks.map(t => dropRoleStart(t, id)),
           holidays: { ...s.holidays, byRole },
         }
       }),

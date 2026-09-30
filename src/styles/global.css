@@ -1039,6 +1039,14 @@ th.holiday {
   outline-offset: 2px;
   color: #b4b4ad;
 }
+/* 간트 직군 줄: 시작일이 지정된 직군 표시 */
+.g-role-pin {
+  display: inline-flex;
+  vertical-align: middle;
+  margin-left: 3px;
+  line-height: 1;
+  opacity: 0.75;
+}
 
 /* ── 드롭존: 간트 카드 맨 아래 줄 ── */
 .gantt-drop-row,
@@ -1437,7 +1445,47 @@ th.holiday {
   line-height: 1.5;
 }
 .modal-task-edit {
-  width: min(420px, calc(100vw - 32px));
+  width: min(460px, calc(100vw - 32px));
+}
+/* 태스크 수정 모달에서만 직군 칸이 [이름 / 일수 + 시작일] 2단이 된다 */
+.modal-task-edit .day-grid {
+  gap: 10px 8px;
+}
+.modal-task-edit .day-field {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 4px;
+}
+.modal-task-edit .day-field label {
+  width: auto;
+  font-size: 11px;
+}
+.day-field-controls {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+}
+.day-field-controls input {
+  flex: none;
+  width: 52px;
+  text-align: center;
+}
+.day-field-controls .date-field-trigger {
+  flex: 1;
+  min-width: 0;
+  min-height: 28px;
+  padding: 0 7px;
+  font-size: 11px;
+  color: var(--ink-2);
+}
+.day-field-controls .date-field-trigger .date-field-text {
+  font-size: 11px;
+}
+.day-field-controls .date-field-trigger.pinned {
+  border-color: #b5d4f4;
+  color: #0c447c;
+  background: var(--focus-soft);
 }
 .modal-footer {
   display: flex;

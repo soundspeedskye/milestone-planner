@@ -20,8 +20,13 @@ export interface Task {
   id: number
   name: string
   days: Record<string, number>
-  /** YYYY-MM-DD. 설정 시 순차 계산 대신 이 날짜부터 시작 */
+  /** YYYY-MM-DD. 설정 시 순차 계산 대신 이 날짜부터 시작 (시작 직군에만 적용) */
   fixedStart?: string
+  /**
+   * 직군 id → 그 직군의 고정 시작일(YYYY-MM-DD).
+   * 지정한 직군은 의존·순서를 무시하고 그 날부터 시작한다. fixedStart보다 우선한다.
+   */
+  roleStarts?: Record<string, string>
 }
 
 export interface RoleSchedule {
@@ -31,6 +36,8 @@ export interface RoleSchedule {
   end: Date
   /** 실제로 일하는 영업일 수. start~end 안의 주말·공휴일은 빠진다 */
   days: number
+  /** 시작일을 지정받아 자리를 잡은 구간 (차트의 📌 표기용) */
+  pinned?: boolean
 }
 
 export interface TaskSchedule {

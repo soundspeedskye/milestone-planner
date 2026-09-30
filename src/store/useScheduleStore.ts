@@ -47,7 +47,9 @@ function scheduleSignature(s: PlannerState): string {
     startDate: s.startDate,
     holidays: s.holidays,
     roles: s.roles,
-    gantt: s.ganttTasks.map(t => ({ id: t.id, days: t.days, fixedStart: t.fixedStart })),
+    gantt: s.ganttTasks.map(t => ({
+      id: t.id, days: t.days, fixedStart: t.fixedStart, roleStarts: t.roleStarts,
+    })),
   })
 }
 

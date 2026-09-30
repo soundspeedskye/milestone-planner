@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { usePlannerStore } from '../../store/usePlannerStore'
+import { DateField } from '../common/DateField'
 import { PencilIcon } from '../icons/AppIcons'
 import type { RoleDef, Task } from '../../types'
 
@@ -10,16 +11,18 @@ interface Props {
 }
 
 /**
- * 간트 목록의 태스크를 이름·직군별 일수만 수정하는 모달.
+ * 간트 목록의 태스크를 이름·직군별 일수·직군별 시작일만 수정하는 모달.
  * 보관함 카드(pool-task) 스타일을 재사용하되, 스토어에 바로 쓰지 않고
  * 로컬 드래프트에 담았다가 '저장'을 눌러야 커밋한다(취소하면 버린다).
  */
 export function TaskEditModal({ task, roles, onClose }: Props) {
   const updateTaskName = usePlannerStore(s => s.updateTaskName)
   const updateTaskDays = usePlannerStore(s => s.updateTaskDays)
+  const setRoleStart = usePlannerStore(s => s.setRoleStart)
 
   const [name, setName] = useState(task.name)
   const [days, setDays] = useState<Record<string, number>>({ ...task.days })
+  const [starts, setStarts] = useState<Record<string, string>>({ ...task.roleStarts })
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -33,6 +36,7 @@ export function TaskEditModal({ task, roles, onClose }: Props) {
     updateTaskName(task.id, name)
     for (const r of roles) {
       updateTaskDays(task.id, r.id, days[r.id] || 0)
+      setRoleStart(task.id, r.id, starts[r.id])
     }
     onClose()
   }
@@ -58,20 +62,41 @@ export function TaskEditModal({ task, roles, onClose }: Props) {
               {roles.map(r => (
                 <div className="day-field" key={r.id}>
                   <label style={{ color: r.palette.header }}>{r.name}</label>
-                  <input
-                    type="number"
-                    min={0}
-                    step={1}
-                    placeholder="0"
-                    value={days[r.id] || ''}
-                    onChange={e =>
-                      setDays(d => ({ ...d, [r.id]: parseInt(e.target.value) || 0 }))
-                    }
-                  />
+                  <div className="day-field-controls">
+                    <input
+                      type="number"
+                      min={0}
+                      step={1}
+                      placeholder="0"
+                      value={days[r.id] || ''}
+                      onChange={e =>
+                        setDays(d => ({ ...d, [r.id]: parseInt(e.target.value) || 0 }))
+                      }
+                    />
+                    <DateField
+                      className={starts[r.id] ? 'pinned' : ''}
+                      value={starts[r.id]}
+                      onChange={v =>
+                        setStarts(s => {
+                          const next = { ...s }
+                          if (v) next[r.id] = v
+                          else delete next[r.id]
+                          return next
+                        })
+                      }
+                      placeholder="시작일 자동"
+                      clearable
+                      aria-label={`${r.name} 시작일 고정`}
+                    />
+                  </div>
                 </div>
               ))}
             </div>
           </div>
+          <p className="modal-hint">
+            직군 시작일을 지정하면 순서·의존을 무시하고 그 날부터 시작해요.
+            비워두면 앞 직군이 끝난 뒤로 자동으로 이어져요.
+          </p>
         </div>
         <div className="modal-footer">
           <button className="btn-reset" onClick={onClose}>취소</button>

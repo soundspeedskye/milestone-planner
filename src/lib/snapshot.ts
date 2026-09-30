@@ -14,8 +14,13 @@ export interface MilestoneSnapshot {
   tasks: {
     id: number
     name: string
+    /** 태스크 시작일 고정 (시작 직군에만 적용) */
     fixedStart?: string
-    roles: Record<string, { days: number; start: string; end: string }>
+    /** fixedStart: 그 직군에 지정된 시작일. 실제 start와 다르면 자리가 밀린 것이다 */
+    roles: Record<
+      string,
+      { days: number; start: string; end: string; fixedStart?: string }
+    >
   }[]
   poolTasks: { id: number; name: string; days: Record<string, number> }[]
   /**
@@ -44,9 +49,10 @@ export function buildMilestoneSnapshot(args: {
   const { startDate, schedules, ganttTasks, poolTasks, roles, holidays } = args
   const range = scheduleRange(schedules)
   const fixedById = new Map(ganttTasks.map(t => [t.id, t.fixedStart]))
+  const roleStartsById = new Map(ganttTasks.map(t => [t.id, t.roleStarts]))
   const nameById = new Map(ganttTasks.map(t => [t.id, t.name]))
   return {
-    version: 4,
+    version: 5,
     source: '마일스톤 플래너',
     savedAt: new Date().toISOString(),
     startDate,
@@ -57,10 +63,18 @@ export function buildMilestoneSnapshot(args: {
       name: nameById.get(s.id) || '(무제)',
       ...(fixedById.get(s.id) ? { fixedStart: fixedById.get(s.id) } : {}),
       roles: Object.fromEntries(
-        Object.entries(s.roles).map(([roleId, info]) => [
-          roleId,
-          { days: info.days, start: fmt(info.start), end: fmt(info.end) },
-        ]),
+        Object.entries(s.roles).map(([roleId, info]) => {
+          const pinned = roleStartsById.get(s.id)?.[roleId]
+          return [
+            roleId,
+            {
+              days: info.days,
+              start: fmt(info.start),
+              end: fmt(info.end),
+              ...(pinned ? { fixedStart: pinned } : {}),
+            },
+          ]
+        }),
       ),
     })),
     poolTasks: poolTasks.map(t => ({ id: t.id, name: t.name, days: { ...t.days } })),

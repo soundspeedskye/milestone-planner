@@ -267,3 +267,144 @@ describe('직군 휴무(연차)는 일정 계산에 영향을 주지 않는다',
     expect(after.roleOffSet['기획']?.has('2026-07-22')).toBe(true)
   })
 })
+
+describe('직군별 시작일 (roleStarts)', () => {
+  const start = parseDate('2026-07-20') // 월
+
+  it('지정한 직군은 그 날부터 시작한다', () => {
+    const tasks: Task[] = [
+      { id: 1, name: 'A', days: { 기획: 3, BE: 2 }, roleStarts: { BE: '2026-08-03' } },
+    ]
+    const [a] = calcSchedules(tasks, DEFAULT_ROLES, start, isWD)
+    expect(period(a.roles['기획'])).toBe('2026-07-20~2026-07-22')
+    // BE는 기획 종료(7/22) 다음이 아니라 지정한 8/3부터
+    expect(period(a.roles['BE'])).toBe('2026-08-03~2026-08-04')
+    expect(a.roles['BE'].pinned).toBe(true)
+    expect(a.roles['기획'].pinned).toBeUndefined()
+  })
+
+  it('지정하지 않은 직군은 지정된 앞 직군의 종료일을 따라온다', () => {
+    const tasks: Task[] = [
+      // 기획을 뒤로 밀면 그 뒤 PD·FE도 따라 밀린다
+      { id: 1, name: 'A', days: { 기획: 2, PD: 2, FE: 2 }, roleStarts: { 기획: '2026-08-03' } },
+    ]
+    const [a] = calcSchedules(tasks, DEFAULT_ROLES, start, isWD)
+    expect(period(a.roles['기획'])).toBe('2026-08-03~2026-08-04')
+    expect(period(a.roles['PD'])).toBe('2026-08-05~2026-08-06')
+    expect(period(a.roles['FE'])).toBe('2026-08-07~2026-08-10')
+  })
+
+  it('지정일이 의존 직군의 종료일보다 앞서도 그 날부터 시작한다', () => {
+    const tasks: Task[] = [
+      { id: 1, name: 'A', days: { 기획: 5, PD: 2 }, roleStarts: { PD: '2026-07-21' } },
+    ]
+    const [a] = calcSchedules(tasks, DEFAULT_ROLES, start, isWD)
+    expect(period(a.roles['기획'])).toBe('2026-07-20~2026-07-24')
+    // 의존(기획 종료 7/24)을 무시하고 지정한 7/21부터
+    expect(period(a.roles['PD'])).toBe('2026-07-21~2026-07-22')
+  })
+
+  it('지정한 직군이 같은 직군의 무지정 태스크보다 먼저 자리를 잡는다', () => {
+    const tasks: Task[] = [
+      { id: 1, name: 'T1', days: { BE: 8 } },
+      { id: 2, name: 'T2', days: { BE: 2 }, roleStarts: { BE: '2026-07-22' } },
+    ]
+    const [t1, t2] = calcSchedules(tasks, DEFAULT_ROLES, start, isWD)
+    expect(period(t2.roles['BE'])).toBe('2026-07-22~2026-07-23')
+    // T1은 7/20~21에 8일을 못 넣으므로 쪼개지 않고 T2 뒤에서 연속으로 잡는다
+    expect(period(t1.roles['BE'])).toBe('2026-07-24~2026-08-04')
+  })
+
+  it('지정한 직군끼리 겹치면 간트 목록 순서가 빠른 쪽이 그 날을 가져간다', () => {
+    const tasks: Task[] = [
+      { id: 1, name: 'A', days: { BE: 5 }, roleStarts: { BE: '2026-07-20' } },
+      { id: 2, name: 'B', days: { BE: 3 }, roleStarts: { BE: '2026-07-22' } },
+    ]
+    const [a, b] = calcSchedules(tasks, DEFAULT_ROLES, start, isWD)
+    expect(period(a.roles['BE'])).toBe('2026-07-20~2026-07-24')
+    // B는 7/22~24가 막혀 있어 A 뒤 첫 빈 자리로 밀린다
+    expect(period(b.roles['BE'])).toBe('2026-07-27~2026-07-29')
+  })
+
+  it('같은 직군에 roleStarts와 fixedStart가 겹치면 roleStarts가 이긴다', () => {
+    const tasks: Task[] = [
+      {
+        id: 1, name: 'A', days: { 기획: 2 },
+        fixedStart: '2026-07-20', roleStarts: { 기획: '2026-07-27' },
+      },
+    ]
+    const [a] = calcSchedules(tasks, DEFAULT_ROLES, start, isWD)
+    expect(period(a.roles['기획'])).toBe('2026-07-27~2026-07-28')
+  })
+
+  it('소요일이 0인 직군의 지정일은 무시된다', () => {
+    const tasks: Task[] = [
+      { id: 1, name: 'A', days: { 기획: 2 }, roleStarts: { BE: '2026-08-03' } },
+    ]
+    const [a] = calcSchedules(tasks, DEFAULT_ROLES, start, isWD)
+    expect(a.roles['BE']).toBeUndefined()
+    expect(period(a.roles['기획'])).toBe('2026-07-20~2026-07-21')
+  })
+
+  it('직군별 시작일이 있어도 막대는 쪼개지지 않는다', () => {
+    const tasks: Task[] = [
+      { id: 1, name: 'A', days: { 기획: 8, PD: 3 }, roleStarts: { PD: '2026-07-22' } },
+      { id: 2, name: 'B', days: { 기획: 4, PD: 2 }, roleStarts: { 기획: '2026-07-21' } },
+      { id: 3, name: 'C', days: { 기획: 3, PD: 2 } },
+    ]
+    const schedules = calcSchedules(tasks, DEFAULT_ROLES, start, isWD)
+    schedules.forEach(s =>
+      Object.values(s.roles).forEach(r =>
+        expect(countWD(r.start, r.end, isWD) + 1).toBe(r.days),
+      ),
+    )
+  })
+
+  it('직군별 시작일을 바꾸면 파생 스토어가 다시 계산한다', () => {
+    usePlannerStore.getState().loadProject({
+      startDate: '2026-07-20',
+      poolTasks: [],
+      ganttTasks: [{ id: 1, name: 'A', days: { 기획: 2, BE: 2 } }],
+      roles: DEFAULT_ROLES,
+      holidays: { custom: [], disabled: [], byRole: {} },
+    })
+    expect(fmt(useScheduleStore.getState().schedules[0].roles['BE'].start)).toBe('2026-07-22')
+
+    usePlannerStore.getState().setRoleStart(1, 'BE', '2026-08-03')
+    expect(fmt(useScheduleStore.getState().schedules[0].roles['BE'].start)).toBe('2026-08-03')
+
+    // 지우면 원래 계산으로 돌아오고 태스크에 빈 객체를 남기지 않는다
+    usePlannerStore.getState().setRoleStart(1, 'BE', undefined)
+    expect(fmt(useScheduleStore.getState().schedules[0].roles['BE'].start)).toBe('2026-07-22')
+    expect(usePlannerStore.getState().ganttTasks[0].roleStarts).toBeUndefined()
+  })
+
+  it('직군을 지우면 그 직군에 걸어둔 시작일도 사라진다', () => {
+    usePlannerStore.getState().loadProject({
+      startDate: '2026-07-20',
+      poolTasks: [],
+      ganttTasks: [{ id: 1, name: 'A', days: { 기획: 2, BE: 2 }, roleStarts: { BE: '2026-08-03' } }],
+      roles: DEFAULT_ROLES,
+      holidays: { custom: [], disabled: [], byRole: {} },
+    })
+    usePlannerStore.getState().removeRole('BE')
+    expect(usePlannerStore.getState().ganttTasks[0].roleStarts).toBeUndefined()
+  })
+
+  it('보관함으로 꺼내면 직군별 시작일도 버린다', () => {
+    usePlannerStore.getState().loadProject({
+      startDate: '2026-07-20',
+      poolTasks: [],
+      ganttTasks: [{
+        id: 1, name: 'A', days: { 기획: 2 },
+        fixedStart: '2026-07-27', roleStarts: { 기획: '2026-08-03' },
+      }],
+      roles: DEFAULT_ROLES,
+      holidays: { custom: [], disabled: [], byRole: {} },
+    })
+    usePlannerStore.getState().ejectFromGantt(1)
+    const pooled = usePlannerStore.getState().poolTasks[0]
+    expect(pooled.roleStarts).toBeUndefined()
+    expect(pooled.fixedStart).toBeUndefined()
+  })
+})

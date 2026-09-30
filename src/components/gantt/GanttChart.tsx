@@ -10,6 +10,7 @@ import {
   useScheduleRange,
   useSchedules,
 } from "../../store/useScheduleStore";
+import { PinIcon } from "../icons/AppIcons";
 import { GanttTaskCell } from "./GanttTaskCell";
 import { DropZone } from "./DropZone";
 
@@ -208,6 +209,16 @@ export function GanttChart() {
                           style={{ color: r.palette.header, fontWeight: 600 }}
                         >
                           {r.name}
+                          {info.pinned && (
+                            <span
+                              className="g-role-pin tip tip-right"
+                              data-tooltip={`시작일 고정 ${first}`}
+                              role="img"
+                              aria-label={`시작일 고정 ${first}`}
+                            >
+                              <PinIcon size={11} />
+                            </span>
+                          )}
                           <br />
                           <span className="g-role-days">{info.days}일</span>
                         </td>
