@@ -8,6 +8,14 @@ export interface ChangelogEntry {
 /** 최신이 맨 앞. 업데이트할 때 이 배열 맨 앞에 항목을 추가한다. */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "3.7.0",
+    date: "2026-10-01",
+    changes: [
+      "간트에서 태스크를 다른 태스크 사이에 끌어다 놓으면 그 자리로 순서가 바뀌어요. 들어갈 자리는 굵은 선으로 보여요.",
+      "날짜 선택 달력이 화면 아래에서 잘리지 않고, 공간이 모자라면 위로 열려요.",
+    ],
+  },
+  {
     version: "3.6.0",
     date: "2026-09-30",
     changes: [
