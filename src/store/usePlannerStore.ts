@@ -20,7 +20,8 @@ export interface PlannerState {
   updateTaskDays: (id: number, roleId: string, days: number) => void
   moveToGantt: (id: number, fixedStart?: string) => void
   ejectFromGantt: (id: number) => void
-  reorderGantt: (from: number, to: number) => void
+  /** 원본 목록의 삽입 경계(0…길이)로 태스크 순서를 바꾼다. */
+  reorderGantt: (from: number, insertAt: number) => void
   setFixedStart: (id: number, date: string | undefined) => void
   setRoleStart: (id: number, roleId: string, date: string | undefined) => void
 
@@ -72,6 +73,28 @@ export function plannerSnapshot(): PlannerData {
 
 const updateTask = (tasks: Task[], id: number, patch: (t: Task) => Task) =>
   tasks.map(t => (t.id === id ? patch(t) : t))
+
+/**
+ * `insertAt`은 이동 전 목록의 카드 사이 경계다. 예를 들어 0은 첫 카드 앞,
+ * `list.length`는 마지막 카드 뒤를 뜻한다.
+ */
+export function moveAtInsertionPoint<T>(list: T[], from: number, insertAt: number): T[] {
+  if (
+    from < 0 ||
+    from >= list.length ||
+    insertAt < 0 ||
+    insertAt > list.length ||
+    insertAt === from ||
+    insertAt === from + 1
+  ) return list
+
+  const next = [...list]
+  const [moved] = next.splice(from, 1)
+  // 아래 방향으로 옮기면 원본에서 꺼낸 뒤 삽입 경계가 한 칸 앞으로 당겨진다.
+  const target = from < insertAt ? insertAt - 1 : insertAt
+  next.splice(target, 0, moved)
+  return next
+}
 
 /** 사라진 직군에 걸려 있던 고정 시작일을 태스크에서 떼어낸다 */
 const dropRoleStart = (task: Task, roleId: string): Task => {
@@ -125,11 +148,9 @@ export const usePlannerStore = create<PlannerState>()(
         const { fixedStart: _drop, roleStarts: _dropRoles, ...rest } = task
         return { ganttTasks: s.ganttTasks.filter(t => t.id !== id), poolTasks: [...s.poolTasks, rest] }
       }),
-      reorderGantt: (from, to) => set(s => {
-        const list = [...s.ganttTasks]
-        const [moved] = list.splice(from, 1)
-        list.splice(to, 0, moved)
-        return { ganttTasks: list }
+      reorderGantt: (from, insertAt) => set(s => {
+        const ganttTasks = moveAtInsertionPoint(s.ganttTasks, from, insertAt)
+        return ganttTasks === s.ganttTasks ? s : { ganttTasks }
       }),
       setFixedStart: (id, date) => set(s => ({
         ganttTasks: updateTask(s.ganttTasks, id, t => {

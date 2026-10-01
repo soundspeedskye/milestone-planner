@@ -1,4 +1,11 @@
-import { Fragment, useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
+import {
+  Fragment,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type DragEvent,
+} from "react";
 import { MONTHS_KO } from "../../constants/date";
 import { fmt, isWeekend, pad, parseDate } from "../../lib/workdays";
 import { usePlannerStore } from "../../store/usePlannerStore";
@@ -21,8 +28,17 @@ function formatWorkDate(start: Date, end: Date) {
   return first === last ? first : `${first}–${last}`
 }
 
+/** 드래그 중 놓일 태스크 사이 경계. top은 .gantt-wrap 스크롤 내용 기준 y */
+type InsertionLine = {
+  insertAt: number
+  top: number
+  width: number
+}
+
 export function GanttChart() {
   const wrapRef = useRef<HTMLDivElement>(null);
+  const tableRef = useRef<HTMLTableElement>(null);
+  const bodyRef = useRef<HTMLTableSectionElement>(null);
   const hasCenteredToday = useRef(false);
   const startDate = usePlannerStore((s) => s.startDate);
   const roles = usePlannerStore((s) => s.roles);
@@ -32,10 +48,68 @@ export function GanttChart() {
   const roleOffSet = useRoleOffSet();
   const range = useScheduleRange();
 
-  // 태스크 셀 드래그 재정렬 (예전 간트 태스크 목록이 하던 일)
+  // 태스크 드래그 재정렬. 표 본문 어디에 놓든 포인터에서 가장 가까운
+  // 태스크 사이 경계로 옮기고, 그 경계에 굵은 선을 그린다.
   const ganttIndex = useDragStore((s) => s.ganttIndex);
-  const [overIndex, setOverIndex] = useState<number | null>(null);
-  const handleOver = useCallback((i: number | null) => setOverIndex(i), []);
+  const setGanttIndex = useDragStore((s) => s.setGanttIndex);
+  const reorderGantt = usePlannerStore((s) => s.reorderGantt);
+  const [insertionLine, setInsertionLine] = useState<InsertionLine | null>(null);
+  const [todayMarker, setTodayMarker] = useState<{
+    left: number;
+    top: number;
+    height: number;
+  } | null>(null);
+
+  /**
+   * 포인터 높이에서 가장 가까운 삽입 경계(0…태스크 수)와 그 경계의 y를 구한다.
+   * 태스크 셀(rowSpan으로 태스크의 모든 직군 줄을 덮는다)의 세로 중간을 기준으로 가른다.
+   */
+  const insertionLineAt = (clientY: number): InsertionLine | null => {
+    const wrap = wrapRef.current;
+    const body = bodyRef.current;
+    const table = tableRef.current;
+    if (!wrap || !body || !table) return null;
+    const cells = body.querySelectorAll<HTMLElement>("[data-gantt-task]");
+    if (cells.length === 0) return null;
+    const rects = Array.from(cells, (c) => c.getBoundingClientRect());
+    let insertAt = rects.findIndex((r) => clientY < r.top + r.height / 2);
+    if (insertAt === -1) insertAt = rects.length;
+    const y = insertAt < rects.length ? rects[insertAt].top : rects[rects.length - 1].bottom;
+    return {
+      insertAt,
+      top: y - wrap.getBoundingClientRect().top + wrap.scrollTop,
+      width: table.offsetWidth,
+    };
+  };
+
+  const handleBodyDragOver = (e: DragEvent<HTMLTableSectionElement>) => {
+    const from = useDragStore.getState().ganttIndex;
+    // 보관함에서 끌어오는 태스크는 아래 DropZone이 받는다.
+    if (readonly || from === null) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    const next = insertionLineAt(e.clientY);
+    // 제자리(자기 바로 위·아래 경계)는 순서가 바뀌지 않으므로 선을 그리지 않는다.
+    const line = next && next.insertAt !== from && next.insertAt !== from + 1 ? next : null;
+    setInsertionLine((current) =>
+      current?.insertAt === line?.insertAt && current?.top === line?.top ? current : line,
+    );
+  };
+
+  const handleBodyDragLeave = (e: DragEvent<HTMLTableSectionElement>) => {
+    const nextTarget = e.relatedTarget as Node | null;
+    if (!nextTarget || !e.currentTarget.contains(nextTarget)) setInsertionLine(null);
+  };
+
+  const handleBodyDrop = (e: DragEvent<HTMLTableSectionElement>) => {
+    const from = useDragStore.getState().ganttIndex;
+    if (readonly || from === null || e.dataTransfer.getData("source") !== "gantt") return;
+    e.preventDefault();
+    const line = insertionLineAt(e.clientY);
+    if (line) reorderGantt(from, line.insertAt);
+    setInsertionLine(null);
+    setGanttIndex(null);
+  };
 
   const cols = useMemo(() => {
     if (!range || !startDate) return [];
@@ -69,7 +143,6 @@ export function GanttChart() {
           df,
           date: pad(d.getDate()),
           off: holidaySet.has(df) ? "holiday" : isWeekend(d) ? "weekend" : "",
-          isToday: df === todayFmt,
         };
       }),
     [cols, holidaySet, todayFmt],
@@ -106,6 +179,43 @@ export function GanttChart() {
     wrap.scrollLeft = Math.max(0, targetLeft);
   }, [range, todayFmt]);
 
+  // 오늘 열을 구성하는 셀마다 테두리를 넣지 않고, 헤더 아래 일정 영역에만
+  // 단일 표시선을 얹는다. 표 크기가 바뀌어도 선의 위치와 길이를 맞춘다.
+  useLayoutEffect(() => {
+    const wrap = wrapRef.current;
+    const table = tableRef.current;
+    const body = bodyRef.current;
+    const todayCell = wrap?.querySelector<HTMLElement>(`[data-gantt-date="${todayFmt}"]`);
+    if (!wrap || !table || !body || !todayCell) {
+      setTodayMarker(null);
+      return;
+    }
+
+    const syncMarker = () => {
+      const wrapRect = wrap.getBoundingClientRect();
+      const cellRect = todayCell.getBoundingClientRect();
+      const bodyRect = body.getBoundingClientRect();
+      const next = {
+        left: cellRect.left - wrapRect.left + wrap.scrollLeft,
+        top: bodyRect.top - wrapRect.top + wrap.scrollTop,
+        height: body.offsetHeight,
+      };
+      setTodayMarker(current =>
+        current &&
+        current.left === next.left &&
+        current.top === next.top &&
+        current.height === next.height
+          ? current
+          : next,
+      );
+    };
+
+    syncMarker();
+    const observer = new ResizeObserver(syncMarker);
+    observer.observe(table);
+    return () => observer.disconnect();
+  }, [cols, todayFmt]);
+
   // 간트가 비어 있어도 카드와 드롭 줄은 남는다. 이게 없으면 태스크를 추가할 길이 사라진다.
   if (schedules.length === 0) {
     return (
@@ -125,7 +235,7 @@ export function GanttChart() {
   return (
     <div className="gantt-card">
       <div className="gantt-wrap" ref={wrapRef}>
-        <table className="gantt-table">
+        <table className="gantt-table" ref={tableRef}>
           <thead>
             <tr>
               <th className="g-task-label" rowSpan={2} style={{ verticalAlign: "middle" }}>태스크</th>
@@ -139,7 +249,7 @@ export function GanttChart() {
             </tr>
             <tr>
               {colMeta.map((c, i) => {
-                const cls = c.isToday ? "today-header" : c.off;
+                const cls = c.off;
                 return (
                   <th key={i} className={`date-cell ${cls}`} data-gantt-date={c.df}>
                     {c.date}
@@ -148,7 +258,12 @@ export function GanttChart() {
               })}
             </tr>
           </thead>
-          <tbody>
+          <tbody
+            ref={bodyRef}
+            onDragOver={handleBodyDragOver}
+            onDragLeave={handleBodyDragLeave}
+            onDrop={handleBodyDrop}
+          >
             {schedules.map((s, taskIndex) => {
               const rks = roles.filter((r) => s.roles[r.id]);
 
@@ -164,8 +279,6 @@ export function GanttChart() {
                       roles={roles}
                       readonly={readonly}
                       dragging={ganttIndex === taskIndex}
-                      over={overIndex === taskIndex}
-                      onOver={handleOver}
                     />
                     <td className="g-role-label" style={{ color: "#ababa3" }}>—</td>
                     <td className="g-work-date" style={{ color: "#ababa3" }}>일수 없음</td>
@@ -173,7 +286,6 @@ export function GanttChart() {
                       <td
                         key={ci}
                         className={`date-cell ${c.off}`}
-                        style={c.isToday ? { borderLeft: "2px solid #E24B4A" } : undefined}
                       />
                     ))}
                   </tr>
@@ -200,8 +312,6 @@ export function GanttChart() {
                             roles={roles}
                             readonly={readonly}
                             dragging={ganttIndex === taskIndex}
-                            over={overIndex === taskIndex}
-                            onOver={handleOver}
                           />
                         )}
                         <td
@@ -240,12 +350,9 @@ export function GanttChart() {
                           return (
                             <td
                               key={ci}
-                              className={`date-cell ${c.off}${hatched ? " bar-off" : ""}`}
+                              className={`date-cell ${c.off}${hatched ? " bar-off" : ""}${inRange ? " task-bar-cell" : ""}`}
                               style={{
                                 ...(filled ? { background: r.palette.bar } : {}),
-                                ...(c.isToday
-                                  ? { borderLeft: "2px solid #E24B4A" }
-                                  : {}),
                               }}
                             >
                               {isRoleOff && (
@@ -267,6 +374,20 @@ export function GanttChart() {
             })}
           </tbody>
         </table>
+        {todayMarker && (
+          <div
+            aria-hidden="true"
+            className="today-marker"
+            style={todayMarker}
+          />
+        )}
+        {ganttIndex !== null && insertionLine && (
+          <div
+            aria-hidden="true"
+            className="gantt-insert-line"
+            style={{ top: insertionLine.top, width: insertionLine.width }}
+          />
+        )}
       </div>
       {!readonly && <DropZone />}
     </div>

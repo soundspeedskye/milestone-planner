@@ -14,8 +14,6 @@ interface Props {
   roles: RoleDef[]
   readonly: boolean
   dragging: boolean
-  over: boolean
-  onOver: (i: number | null) => void
 }
 
 function GripIcon() {
@@ -35,48 +33,41 @@ function GripIcon() {
  * 태스크 하나만 구독해서, 다른 태스크를 고쳐도 이 셀은 다시 그리지 않는다.
  */
 export const GanttTaskCell = memo(function GanttTaskCell({
-  id, index, rowSpan, roles, readonly, dragging, over, onOver,
+  id, index, rowSpan, roles, readonly, dragging,
 }: Props) {
   const task = usePlannerStore(s => s.ganttTasks.find(t => t.id === id))
   const ejectFromGantt = usePlannerStore(s => s.ejectFromGantt)
-  const reorderGantt = usePlannerStore(s => s.reorderGantt)
   const setFixedStart = usePlannerStore(s => s.setFixedStart)
   const setGanttIndex = useDragStore(s => s.setGanttIndex)
   const [editing, setEditing] = useState(false)
 
-  if (!task) return <td className="g-task-label" rowSpan={rowSpan} />
+  // 놓을 자리(태스크 사이 경계)는 GanttChart가 표 본문 전체에서 data-gantt-task로 찾는다.
+  if (!task) return <td className="g-task-label" rowSpan={rowSpan} data-gantt-task={index} />
 
   return (
-    <td className="g-task-label" rowSpan={rowSpan} style={{ verticalAlign: 'middle' }}>
-      <div
-        className={`g-task-cell ${dragging ? 'dragging' : ''} ${over ? 'drag-over' : ''}`}
-        draggable={!readonly}
-        onDragStart={e => {
-          if (readonly) return
-          setGanttIndex(index)
-          e.dataTransfer.effectAllowed = 'move'
-          e.dataTransfer.setData('source', 'gantt')
-        }}
-        onDragEnd={() => setGanttIndex(null)}
-        onDragOver={e => {
-          if (readonly) return
-          e.preventDefault()
-          onOver(index)
-        }}
-        onDragLeave={() => onOver(null)}
-        onDrop={e => {
-          if (readonly) return
-          e.preventDefault()
-          onOver(null)
-          const { ganttIndex: from } = useDragStore.getState()
-          if (e.dataTransfer.getData('source') === 'gantt' && from !== null && from !== index) {
-            reorderGantt(from, index)
-            setGanttIndex(null)
-          }
-        }}
-      >
+    <td
+      className="g-task-label"
+      rowSpan={rowSpan}
+      style={{ verticalAlign: 'middle' }}
+      data-gantt-task={index}
+    >
+      <div className={`g-task-cell ${dragging ? 'dragging' : ''}`}>
         <div className="gtc-top">
-          {!readonly && <span className="drag-handle-gantt"><GripIcon /></span>}
+          {!readonly && (
+            <span
+              className="drag-handle-gantt"
+              draggable
+              onDragStart={e => {
+                setGanttIndex(index)
+                e.dataTransfer.effectAllowed = 'move'
+                e.dataTransfer.setData('source', 'gantt')
+              }}
+              onDragEnd={() => setGanttIndex(null)}
+              aria-label={`${task.name || '무제'} 태스크 순서 변경`}
+            >
+              <GripIcon />
+            </span>
+          )}
           <span className="gantt-task-label">{task.name || '(무제)'}</span>
           {!readonly && (
             <span className="gtc-actions">

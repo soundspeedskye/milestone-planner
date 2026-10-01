@@ -777,6 +777,7 @@ body {
   --gantt-month-header-height: 27px;
   flex: 1;
   min-height: 0;
+  position: relative;
   overflow: auto;
   overscroll-behavior: contain;
 }
@@ -850,7 +851,8 @@ body {
 .gantt-table .g-work-date {
   position: sticky;
   background: var(--panel);
-  z-index: 2;
+  /* 가로 스크롤 중에도 일정 막대보다 항상 위에 남는다. */
+  z-index: 5;
 }
 .gantt-table .g-task-label {
   left: 0;
@@ -872,6 +874,10 @@ body {
   background: var(--panel-2);
   z-index: 6;
   top: 0;
+}
+/* 본문 태스크 셀은 왼쪽 정렬이지만 컬럼명은 다른 헤더처럼 가운데 둔다. */
+.gantt-table thead .g-task-label {
+  text-align: center;
 }
 /* 두 줄 헤더를 간트 내부 세로 스크롤에서 함께 고정한다. */
 .gantt-table thead .month-header {
@@ -935,14 +941,22 @@ body {
     var(--danger) 4px 5px
   ) !important;
 }
+/* 오늘 표시선은 빈 날짜 격자 위에만 보이고, 실제 태스크 막대는 그 위에 놓인다. */
+.gantt-table td.task-bar-cell {
+  position: relative;
+  z-index: 2;
+}
 th.weekend,
 th.holiday {
   color: #c57c7c;
 }
-.today-header {
-  background: #fcebeb !important;
-  color: #a32d2d !important;
-  font-weight: 700;
+.today-marker {
+  position: absolute;
+  width: 2px;
+  background: var(--danger);
+  transform: translateX(-1px);
+  pointer-events: none;
+  z-index: 1;
 }
 .empty-gantt {
   font-size: 13px;
@@ -955,20 +969,29 @@ th.holiday {
 .g-task-cell {
   display: flex;
   flex-direction: column;
-  gap: 7px;
+  gap: 10px;
 }
 .g-task-cell.dragging {
   opacity: 0.4;
 }
-.g-task-cell.drag-over {
-  outline: 2px solid var(--focus);
-  outline-offset: -2px;
-  border-radius: var(--r-sm);
+/*
+ * 드래그 중 태스크가 들어갈 자리. 태스크와 태스크 사이 경계에 표 전체 너비로 굵게 긋는다.
+ * 본문 고정 열(z-index 5)보다 위, 고정 헤더(6)보다는 아래에 둔다.
+ */
+.gantt-insert-line {
+  position: absolute;
+  left: 0;
+  height: 4px;
+  background: var(--focus);
+  border-radius: var(--r-pill);
+  transform: translateY(-50%);
+  pointer-events: none;
+  z-index: 5;
 }
 .gtc-top {
   display: flex;
   align-items: center;
-  gap: 7px;
+  gap: 10px;
   min-width: 0;
 }
 .gantt-task-label {
@@ -1056,7 +1079,7 @@ th.holiday {
   align-items: center;
   justify-content: center;
   gap: 8px;
-  height: 44px;
+  height: 120px;
   border-top: 1px dashed var(--line-strong);
   background: #fcfcfa;
   color: var(--ink-4);
@@ -1103,6 +1126,8 @@ th.holiday {
   padding: 10px 8px;
   display: flex;
   align-items: center;
+  justify-content: center;
+  text-align: center;
   background: var(--panel-2);
   border-right: 1px solid var(--line);
   flex-shrink: 0;
